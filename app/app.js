@@ -253,7 +253,7 @@ function englishVoices(){try{return speechSynthesis.getVoices().filter(v=>voiceS
 function chosenVoice(){const vs=englishVoices();const saved=store.get("voice","");return vs.find(v=>v.name===saved)||vs[0]||null}
 function speakScript(text,onDone){
   try{speechSynthesis.cancel()}catch(e){}
-  const v=chosenVoice();const parts=text.split(/\n\n/).flatMap((para,pi)=>{const ss=para.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[para];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1}))}).filter(x=>x.t);
+  const v=chosenVoice();try{const vn=document.getElementById("voiceNow");if(vn)vn.textContent=v?"Now playing with: "+v.name:"Using the browser's default voice"}catch(e){}const parts=text.split(/\n\n/).flatMap((para,pi)=>{const ss=para.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[para];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1}))}).filter(x=>x.t);
   let i=0,stopped=false;
   const next=()=>{if(stopped)return;if(i>=parts.length){onDone();return}
     const u=new SpeechSynthesisUtterance(parts[i].t);if(v){u.voice=v;u.lang=v.lang}else u.lang="en-NZ";u.rate=.92;u.pitch=1;
@@ -418,7 +418,7 @@ function bindMock(){
     ${isL?`<div id="voiceBox">${voicePicker()}</div>`:""}
     <div><button class="btn" id="startMock">${STU?"Start":"Start mock"}</button></div></div>
    <div id="live" class="hidden" style="display:grid;gap:12px">
-    <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span></div>':""}</div>
+    <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span><span id="voiceNow" class="muted" style="font-size:12.5px;flex-basis:100%;text-align:right"></span></div>':""}</div>
     ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by a computer voice.":"Demo audio uses the browser's best available voice. For the most natural sound, use Microsoft Edge (its Natural voices) or Chrome (Google voices)."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
     <div>${d.qs.map((q,i)=>`<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)}</legend>${q.o.map((o,j)=>`<label class="opt" id="mo${i}_${j}"><input type="radio" name="m${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="mf${i}"></div></div>`).join("")}</div>
     <div><button class="btn" id="submitMock">Submit answers</button></div>
