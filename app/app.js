@@ -243,6 +243,28 @@ function lengthCheck(measured,min,type,unit){
   return `<div class="meter">${ok?'<span class="pill ok">Meets minimum</span>':'<span class="pill warn">Below SD minimum</span>'}
   <span>Measured: <b>${unit==="s"?mmss(measured):measured+" words"}</b> · SD ${type==="must"?"requires":"recommends"}: <b>${unit==="s"?"≥ "+mmss(min):"≥ "+min+" words"}</b> ${badge(type)}</span></div>`;
 }
+/* ---------- Voice: pick the most natural English voice the browser offers ---------- */
+function voiceScore(v){const n=v.name.toLowerCase(),l=(v.lang||"").toLowerCase();if(!l.startsWith("en"))return -1;let s=0;
+  if(/natural|neural/.test(n))s+=60;if(/online/.test(n))s+=10;if(/premium|enhanced/.test(n))s+=45;if(/^google/.test(n))s+=35;
+  if(/siri/.test(n))s+=30;if(l==="en-nz")s+=12;else if(l==="en-au"||l==="en-gb")s+=8;else if(l==="en-us")s+=5;
+  if(/compact|espeak|robot|zarvox|trinoids|whisper|bad news|bells|boing|bubbles|cellos|jester|organ|superstar|wobble|albert|fred|junior|ralph|kathy|bahh|deranged|hysterical|good news|pipe/.test(n))s-=100;
+  if(!v.localService)s+=3;return s}
+function englishVoices(){try{return speechSynthesis.getVoices().filter(v=>voiceScore(v)>=0).sort((a,b)=>voiceScore(b)-voiceScore(a))}catch(e){return[]}}
+function chosenVoice(){const vs=englishVoices();const saved=store.get("voice","");return vs.find(v=>v.name===saved)||vs[0]||null}
+function speakScript(text,onDone){
+  try{speechSynthesis.cancel()}catch(e){}
+  const v=chosenVoice();const parts=text.split(/\n\n/).flatMap((para,pi)=>{const ss=para.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[para];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1}))}).filter(x=>x.t);
+  let i=0,stopped=false;
+  const next=()=>{if(stopped)return;if(i>=parts.length){onDone();return}
+    const u=new SpeechSynthesisUtterance(parts[i].t);if(v){u.voice=v;u.lang=v.lang}else u.lang="en-NZ";u.rate=.92;u.pitch=1;
+    const gap=parts[i].gap?450:120;i++;u.onend=()=>setTimeout(next,gap);u.onerror=e=>{if(e.error==="interrupted"||e.error==="canceled"){stopped=true;onDone()}else setTimeout(next,gap)};speechSynthesis.speak(u)};
+  next();
+}
+function voicePicker(){
+  const vs=englishVoices();const cur=chosenVoice();
+  if(!vs.length)return "";
+  return `<div class="row"><label for="voiceSel" style="font-size:13px"><b>Voice</b></label><select id="voiceSel" style="max-width:320px">${vs.slice(0,12).map(v=>`<option${cur&&v.name===cur.name?" selected":""}>${esc(v.name)}</option>`).join("")}</select><button class="btn secondary" id="voiceTest" style="padding:5px 10px;font-size:13px">Test voice</button></div>`;
+}
 function learnerCheck(measured,min,unit,what){
   if(!STU)return lengthCheck(measured,min,"rec",unit);
   const ok=measured>=min;
@@ -393,15 +415,19 @@ function bindMock(){
     <span class="pill perm">${STU?"Allowed":"Permitted"}</span><span>A monolingual or bilingual dictionary${STU?" (a dictionary only, not a translation app)":" (dictionary function only)"}.</span>
     <span class="pill none">Time</span><span>${isL?"Two plays, then ":""}${mmss(limit)} to finish your answers${STU?"":" (platform default; the SD sets no time limit)"}.</span>
     <span class="pill none">${STU?"Not allowed":"Disabled"}</span><span>${STU?"Hints, the transcript, translation or AI tools.":"Hints, transcript, AI tools."}</span></div>
+    ${isL?`<div id="voiceBox">${voicePicker()}</div>`:""}
     <div><button class="btn" id="startMock">${STU?"Start":"Start mock"}</button></div></div>
    <div id="live" class="hidden" style="display:grid;gap:12px">
     <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span></div>':""}</div>
-    ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by your browser's computer voice.":"Demo audio uses your browser's text-to-speech voice."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
+    ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by a computer voice.":"Demo audio uses the browser's best available voice. For the most natural sound, use Microsoft Edge (its Natural voices) or Chrome (Google voices)."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
     <div>${d.qs.map((q,i)=>`<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)}</legend>${q.o.map((o,j)=>`<label class="opt" id="mo${i}_${j}"><input type="radio" name="m${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="mf${i}"></div></div>`).join("")}</div>
     <div><button class="btn" id="submitMock">Submit answers</button></div>
    </div>
    <div id="result" class="hidden"></div>`;
   let plays=0,left=limit,done=false;
+  const wireVoice=()=>{const sel=$("#voiceSel");if(sel)sel.onchange=()=>store.set("voice",sel.value);const tb=$("#voiceTest");if(tb)tb.onclick=()=>{store.set("voice",$("#voiceSel").value);speakScript("Good morning, everyone. Today's lecture is about sleep and memory.",()=>{})}};
+  wireVoice();
+  if(isL&&"speechSynthesis" in window&&!englishVoices().length){try{speechSynthesis.onvoiceschanged=()=>{const b=$("#voiceBox");if(b&&!b.innerHTML){b.innerHTML=voicePicker();wireVoice()}}}catch(e){}}
   const submit=(auto)=>{if(done)return;done=true;clearTimers();
     const by={};let c=0;
     d.qs.forEach((q,i)=>{const s=document.querySelector(`input[name=m${i}]:checked`);const v=s?+s.value:-1;by[q.f]=by[q.f]||[0,0];by[q.f][1]++;if(v===q.a){by[q.f][0]++;c++}
@@ -425,7 +451,7 @@ function bindMock(){
       if(!hasTTS)$("#ttsnote").textContent="This browser has no text-to-speech. The play counter still demonstrates the two-play rule.";
       pb.onclick=()=>{if(plays>=2)return;plays++;$("#plays").textContent=`Plays used: ${plays} of 2`;pb.disabled=true;pb.textContent=plays===1?"Playing (1st)…":"Playing (repeat)…";
         const fin=()=>{pb.textContent=plays>=2?"No plays left":"Play repeat";pb.disabled=plays>=2};
-        if(hasTTS){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(d.script);u.lang="en-NZ";u.rate=.95;u.onend=fin;u.onerror=fin;speechSynthesis.speak(u)}catch(e){fin()}}else setTimeout(fin,1500)}}};
+        if(hasTTS){try{speakScript(d.script,fin)}catch(e){fin()}}else setTimeout(fin,1500)}}};
   $("#submitMock").onclick=()=>submit(false);
 }
 
