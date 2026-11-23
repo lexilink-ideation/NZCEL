@@ -24,7 +24,9 @@ Primary curriculum reference: NZQA *NZCEL Supporting Document* (2026).
 | `docs/assessment-blueprint.md` | Formative / timed mock / rubric modes, mock evidence sets, topic bank, time limits |
 | `docs/marking-rubrics.md` | Platform practice rubrics for writing and speaking; listening/reading marking keys |
 | `docs/repository-audit.md` | Audit result and checklist for any imported content |
-| `prototype/index.html` | Interactive front-end prototype (open in a browser; no build step) |
+| `practice/index.html` | **Student view**: practice exercises, mock exam, writing & speaking (no review tools) |
+| `prototype/index.html` | Teacher / review view: adds alignment matrix, assessment blueprint and verification log |
+| `app/app.js`, `app/app.css` | Shared code for both views (`window.NZCEL_AUDIENCE` selects student or teacher) |
 
 ## Status
 
