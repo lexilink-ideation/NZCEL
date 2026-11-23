@@ -8,6 +8,8 @@
  *   - Text and task lengths .............. SD Section 6 summary table, p.30
  *   - Mandatory EAP unit standards ....... SD Section 6 (pp.37, 40) and Section 8
  *
+ * lengthsPlain (optional): student-facing wording without unit standard codes; shown on the front page.
+ *
  * status:
  *   "active"   – alignment docs + content in this repo
  *   "planned"  – registered, no docs or content yet
@@ -98,6 +100,7 @@ window.NZCEL_REGISTRY = {
         reading: "Understand main ideas and some specific details of moderately complex written texts on reasonably familiar topics relevant to the academic context.",
         writing: "Write clear connected texts on reasonably familiar topics relevant to the academic context."
       },
+      lengthsPlain: { listening: "4–5 minutes (one task at least 5)", reading: "450–800 words", writing: "300–500 words, depending on the task", speaking: "4 to 6 minutes (presentation at least 5)" },
       lengths: { listening: "4–5 minutes (EAP 30509: minimum 5)", reading: "450–800 words (EAP 30511: at least 800 in total)", writing: "Minimum 300 words (EAP 30508: 500)", speaking: "4 to 6 minutes (EAP 30510: at least 5)" },
       mandatoryUS: [
         { us: "30509", skill: "listening", title: "Listen to and process information about a familiar topic in a short spoken text in English for an academic purpose", rule: "Text minimum 5 minutes" },
@@ -145,6 +148,7 @@ window.NZCEL_REGISTRY = {
         reading: "Understand main ideas and supporting details of moderately complex written academic texts.",
         writing: "Write detailed, developed, moderately complex academic texts."
       },
+      lengthsPlain: { listening: "6–8 minutes (one task at least 8)", reading: "800–1500 words", writing: "400–800 words, depending on the task", speaking: "6 to 10 minutes (presentation at least 8)" },
       lengths: { listening: "6–8 minutes (EAP 22892: minimum 8)", reading: "Minimum 800 words (EAP 22751: 1500)", writing: "Minimum 400 for one text; EAP 22749 minimum 500; EAP 22750 minimum 800", speaking: "6 to 10 minutes (EAP 22891: at least 8)" },
       mandatoryUS: [
         { us: "22892", skill: "listening", title: "Listen to and process information from a spoken text in English for an academic purpose", rule: "Text minimum 8 minutes" },
