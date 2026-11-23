@@ -243,6 +243,28 @@ function lengthCheck(measured,min,type,unit){
   return `<div class="meter">${ok?'<span class="pill ok">Meets minimum</span>':'<span class="pill warn">Below SD minimum</span>'}
   <span>Measured: <b>${unit==="s"?mmss(measured):measured+" words"}</b> · SD ${type==="must"?"requires":"recommends"}: <b>${unit==="s"?"≥ "+mmss(min):"≥ "+min+" words"}</b> ${badge(type)}</span></div>`;
 }
+/* ---------- Voice: pick the most natural English voice the browser offers ---------- */
+function voiceScore(v){const n=v.name.toLowerCase(),l=(v.lang||"").toLowerCase();if(!l.startsWith("en"))return -1;let s=0;
+  if(/natural|neural/.test(n))s+=60;if(/online/.test(n))s+=10;if(/premium|enhanced/.test(n))s+=45;if(/^google/.test(n))s+=35;
+  if(/siri/.test(n))s+=30;if(l==="en-nz")s+=12;else if(l==="en-au"||l==="en-gb")s+=8;else if(l==="en-us")s+=5;
+  if(/compact|espeak|robot|zarvox|trinoids|whisper|bad news|bells|boing|bubbles|cellos|jester|organ|superstar|wobble|albert|fred|junior|ralph|kathy|bahh|deranged|hysterical|good news|pipe/.test(n))s-=100;
+  if(!v.localService)s+=3;return s}
+function englishVoices(){try{return speechSynthesis.getVoices().filter(v=>voiceScore(v)>=0).sort((a,b)=>voiceScore(b)-voiceScore(a))}catch(e){return[]}}
+function chosenVoice(){const vs=englishVoices();const saved=store.get("voice","");return vs.find(v=>v.name===saved)||vs[0]||null}
+function speakScript(text,onDone){
+  try{speechSynthesis.cancel()}catch(e){}
+  const v=chosenVoice();const parts=text.split(/\n\n/).flatMap((para,pi)=>{const ss=para.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[para];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1}))}).filter(x=>x.t);
+  let i=0,stopped=false;
+  const next=()=>{if(stopped)return;if(i>=parts.length){onDone();return}
+    const u=new SpeechSynthesisUtterance(parts[i].t);if(v){u.voice=v;u.lang=v.lang}else u.lang="en-NZ";u.rate=.92;u.pitch=1;
+    const gap=parts[i].gap?450:120;i++;u.onend=()=>setTimeout(next,gap);u.onerror=e=>{if(e.error==="interrupted"||e.error==="canceled"){stopped=true;onDone()}else setTimeout(next,gap)};speechSynthesis.speak(u)};
+  next();
+}
+function voicePicker(){
+  const vs=englishVoices();const cur=chosenVoice();
+  if(!vs.length)return "";
+  return `<div class="row"><label for="voiceSel" style="font-size:13px"><b>Voice</b></label><select id="voiceSel" style="max-width:320px">${vs.slice(0,12).map(v=>`<option${cur&&v.name===cur.name?" selected":""}>${esc(v.name)}</option>`).join("")}</select><button class="btn secondary" id="voiceTest" style="padding:5px 10px;font-size:13px">Test voice</button></div>`;
+}
 function learnerCheck(measured,min,unit,what){
   if(!STU)return lengthCheck(measured,min,"rec",unit);
   const ok=measured>=min;
@@ -357,7 +379,7 @@ function vForm(){
 function bindForm(){
   const d=READ[LV];const ans={};
   const draw=()=>{const by={};d.qs.forEach((q,i)=>{by[q.f]=by[q.f]||[0,0];if(i in ans){by[q.f][1]++;if(ans[i])by[q.f][0]++}});
-    $("#fbars").innerHTML=Object.keys(by).map(k=>{const [c,t]=by[k];const lbl=(FOCUS[LV].Reading.find(f=>f[0]===k)||[k,k])[1];return `<div class="barrow"><span title="${esc(lbl)}">${STU?esc(SHORT[k]||k):`<span class="mono">${k}</span> ${esc(lbl.split(" ").slice(0,3).join(" "))}…`}</span><div class="track"><div class="fill" style="width:${t?c/t*100:0}%"></div></div><span class="num">${c}/${t}</span></div>`}).join("")+'<p class="muted" style="font-size:12.5px">${STU?"These counts help you see what to practise next.":"Counts only. No levels or pass marks are derived from them."}</p>'};
+    $("#fbars").innerHTML=Object.keys(by).map(k=>{const [c,t]=by[k];const lbl=(FOCUS[LV].Reading.find(f=>f[0]===k)||[k,k])[1];return `<div class="barrow"><span title="${esc(lbl)}">${STU?esc(SHORT[k]||k):`<span class="mono">${k}</span> ${esc(lbl.split(" ").slice(0,3).join(" "))}…`}</span><div class="track"><div class="fill" style="width:${t?c/t*100:0}%"></div></div><span class="num">${c}/${t}</span></div>`}).join("")+`<p class="muted" style="font-size:12.5px">${STU?"These counts help you see what to practise next.":"Counts only. No levels or pass marks are derived from them."}</p>`};
   d.qs.forEach((q,i)=>document.querySelectorAll(`input[name=f${i}]`).forEach(r=>r.addEventListener("change",()=>{
     const v=+r.value;ans[i]=v===q.a;
     q.o.forEach((_,j)=>{const el=$(`#fo${i}_${j}`);el.classList.remove("right","wrong");if(j===q.a)el.classList.add("right");else if(j===v)el.classList.add("wrong")});
@@ -387,21 +409,25 @@ function bindMock(){
    ${STU?`<div class="row" style="gap:6px 14px"><span><b>${isL?"Listening":"Reading"}</b> · ${esc(topicName(d.topic))}</span>${SAMPLE}</div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Topic</b> ${d.topic}</span><span><b>Text type</b> ${d.textType}</span><span><b>Coverage slot</b> <span class="mono">${slot}</span></span></div>
    ${isL?lengthCheck(est,d.min,"rec","s"):lengthCheck(words,d.min,d.minType,"w")}
    ${isL?'<p class="muted" style="font-size:13px">Audio duration is estimated at 150 words per minute from the script. In production, recorded audio is measured exactly.</p>':""}`}
+   ${isL&&!STU?`<details class="card" open style="background:var(--bg);border-color:var(--accent)"><summary>Audio script and answer key (teacher only · ${words} words · about ${mmss(est)} spoken)</summary><div style="display:grid;gap:10px;margin-top:10px"><p class="muted" style="font-size:13px">Hidden from students during the mock; shown to them in their results after they submit. Topic: ${esc(d.topic)} · ${esc(d.textType)}.</p>${scriptHTML(d.script)}<div><b>Answer key</b><ol style="margin:6px 0 0;padding-left:20px">${d.qs.map(q=>`<li>${esc(q.o[q.a])} <span class="muted" style="font-size:12.5px">(${SHORT[q.f]||q.f})</span></li>`).join("")}</ol></div></div></details>`:""}
    <div class="card" style="background:var(--bg)" id="pre"><h3>Before you start</h3>
     <div class="check"><span class="pill must">${STU?"Rule":"Must"}</span><span>${isL?"The audio plays exactly twice (first play + one repeat). You can't pause or replay it.":"Answer independently. Feedback appears only after you submit."}</span>
     <span class="pill perm">${STU?"Allowed":"Permitted"}</span><span>A monolingual or bilingual dictionary${STU?" (a dictionary only, not a translation app)":" (dictionary function only)"}.</span>
     <span class="pill none">Time</span><span>${isL?"Two plays, then ":""}${mmss(limit)} to finish your answers${STU?"":" (platform default; the SD sets no time limit)"}.</span>
     <span class="pill none">${STU?"Not allowed":"Disabled"}</span><span>${STU?"Hints, the transcript, translation or AI tools.":"Hints, transcript, AI tools."}</span></div>
+    ${isL?`<div id="voiceBox">${voicePicker()}</div>`:""}
     <div><button class="btn" id="startMock">${STU?"Start":"Start mock"}</button></div></div>
    <div id="live" class="hidden" style="display:grid;gap:12px">
     <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span></div>':""}</div>
-    ${isL?'<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by your browser\'s computer voice.":"Demo audio uses your browser\'s text-to-speech voice."}</p><label for="notes"><b>Your notes</b> <span class="muted">(kept with your answers; you may amend answers from notes)</span></label><textarea id="notes" style="min-height:110px"></textarea>':`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
+    ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by a computer voice.":"Demo audio uses the browser's best available voice. For the most natural sound, use Microsoft Edge (its Natural voices) or Chrome (Google voices)."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
     <div>${d.qs.map((q,i)=>`<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)}</legend>${q.o.map((o,j)=>`<label class="opt" id="mo${i}_${j}"><input type="radio" name="m${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="mf${i}"></div></div>`).join("")}</div>
     <div><button class="btn" id="submitMock">Submit answers</button></div>
    </div>
-   ${isL&&!STU?`<details class="card" style="background:var(--bg)"><summary>Audio script (teacher only · ${words} words · about ${mmss(est)} spoken)</summary><div style="display:grid;gap:10px;margin-top:10px"><p class="muted" style="font-size:13px">Hidden from students during the mock; shown to them in their results after they submit. Topic: ${esc(d.topic)} · ${esc(d.textType)}.</p>${scriptHTML(d.script)}<div><b>Answer key</b><ol style="margin:6px 0 0;padding-left:20px">${d.qs.map(q=>`<li>${esc(q.o[q.a])} <span class="muted" style="font-size:12.5px">(${SHORT[q.f]||q.f})</span></li>`).join("")}</ol></div></div></details>`:""}
    <div id="result" class="hidden"></div>`;
   let plays=0,left=limit,done=false;
+  const wireVoice=()=>{const sel=$("#voiceSel");if(sel)sel.onchange=()=>store.set("voice",sel.value);const tb=$("#voiceTest");if(tb)tb.onclick=()=>{store.set("voice",$("#voiceSel").value);speakScript("Good morning, everyone. Today's lecture is about sleep and memory.",()=>{})}};
+  wireVoice();
+  if(isL&&"speechSynthesis" in window&&!englishVoices().length){try{speechSynthesis.onvoiceschanged=()=>{const b=$("#voiceBox");if(b&&!b.innerHTML){b.innerHTML=voicePicker();wireVoice()}}}catch(e){}}
   const submit=(auto)=>{if(done)return;done=true;clearTimers();
     const by={};let c=0;
     d.qs.forEach((q,i)=>{const s=document.querySelector(`input[name=m${i}]:checked`);const v=s?+s.value:-1;by[q.f]=by[q.f]||[0,0];by[q.f][1]++;if(v===q.a){by[q.f][0]++;c++}
@@ -425,7 +451,7 @@ function bindMock(){
       if(!hasTTS)$("#ttsnote").textContent="This browser has no text-to-speech. The play counter still demonstrates the two-play rule.";
       pb.onclick=()=>{if(plays>=2)return;plays++;$("#plays").textContent=`Plays used: ${plays} of 2`;pb.disabled=true;pb.textContent=plays===1?"Playing (1st)…":"Playing (repeat)…";
         const fin=()=>{pb.textContent=plays>=2?"No plays left":"Play repeat";pb.disabled=plays>=2};
-        if(hasTTS){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(d.script);u.lang="en-NZ";u.rate=.95;u.onend=fin;u.onerror=fin;speechSynthesis.speak(u)}catch(e){fin()}}else setTimeout(fin,1500)}}};
+        if(hasTTS){try{speakScript(d.script,fin)}catch(e){fin()}}else setTimeout(fin,1500)}}};
   $("#submitMock").onclick=()=>submit(false);
 }
 
@@ -446,7 +472,7 @@ function report(key,prefix,conds,rater){
   const rows=RUB[key].map((c,ci)=>{const s=document.querySelector(`input[name=${prefix}r${ci}]:checked`);const cm=$("#"+prefix+"c"+ci).value.trim();
     return `<tr><td>${esc(critName(c[0]))}</td><td>${s?`<span class="pill ${+s.value===3?"ok":+s.value===2?"rec":"warn"}">${+s.value+1} · ${BANDS[+s.value]}</span>`:'<span class="pill none">Not rated</span>'}</td><td>${cm?esc(cm):'<span class="muted">No comment</span>'}</td></tr>`}).join("");
   return `<div class="row spread"><h2>${STU?"Your feedback":"Practice report"}</h2><span class="pill none">Rated by: ${esc(rater)}${rater==="automated"?" · Automated formative feedback":""}</span></div>
-   <h3>${STU?"Task checks":"Condition checks"}</h3><div class="check">${conds.map(c=>`${c[0]?'<span class="pill ok">${STU?"Yes":"Met"}</span>':'<span class="pill warn">${STU?"Not yet":"Not met"}</span>'}<span>${esc(c[1])}</span>`).join("")}</div>
+   <h3>${STU?"Task checks":"Condition checks"}</h3><div class="check">${conds.map(c=>`${c[0]?`<span class="pill ok">${STU?"Yes":"Met"}</span>`:`<span class="pill warn">${STU?"Not yet":"Not met"}</span>`}<span>${esc(c[1])}</span>`).join("")}</div>
    <h3>${STU?"Checklist":"Criterion feedback"}</h3><div class="tbl"><table><thead><tr><th>${STU?"Point":"Criterion"}</th><th>${STU?"Rating":"Band"}</th><th>${STU?"Example":"Evidence / comment"}</th></tr></thead><tbody>${rows}</tbody></table></div>
    <p class="muted">${STU?"Look at the points rated lowest: those are what to practise next.":"No total, average or pass/fail is calculated."}</p>${FOOT}`;
 }
