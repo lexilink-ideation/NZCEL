@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NZCEL Preparation Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: level rows (6 → 1) with one card per qualification; detail panel below the grid. Same tokens as prototype/. */
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#17232a; --muted:#56656d; --line:#d5dddc;
+  --accent:#0b5e66; --accent-soft:#e0efef; --hl:#c98a12;
+  --ok:#1f7a4a; --ok-soft:#e3f3ea; --warn-soft:#fbf0d9;
+  --display:"IBM Plex Serif",Georgia,serif; --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111a1e; --surface:#18242a; --ink:#e4ecec; --muted:#9aabb0; --line:#2c3c42;
+  --accent:#5fb8bf; --accent-soft:#1d3a3e; --hl:#e3b04b; --ok:#6fcf9a; --ok-soft:#173026; --warn-soft:#33280f; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#111a1e; --surface:#18242a; --ink:#e4ecec; --muted:#9aabb0; --line:#2c3c42;
+  --accent:#5fb8bf; --accent-soft:#1d3a3e; --hl:#e3b04b; --ok:#6fcf9a; --ok-soft:#173026; --warn-soft:#33280f; color-scheme:dark;}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--body)}
+a{color:var(--accent)}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1{font:600 28px/1.2 var(--display)} h2{font:600 21px/1.25 var(--display)} h3{font:600 15px/1.3 var(--body)}
+p{margin:0}
+.mono{font-family:var(--mono);font-size:12.5px}
+.muted{color:var(--muted)}
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{max-width:1120px;margin:0 auto;padding:12px 16px;display:flex;gap:12px 20px;align-items:center;flex-wrap:wrap}
+.brand{font:600 17px var(--display);margin-right:auto}
+nav{display:flex;gap:2px}
+nav a{padding:7px 12px;text-decoration:none;color:var(--muted);font-weight:500;font-size:14px;border-radius:7px}
+nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.notice{background:var(--warn-soft);border-bottom:1px solid var(--line);font-size:13px}
+.notice div{max-width:1120px;margin:0 auto;padding:7px 16px}
+main{max-width:1120px;margin:0 auto;padding:24px 16px 64px;display:grid;gap:22px}
+.lede{max-width:72ch;color:var(--muted)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;align-items:center}
+.lvl{display:grid;grid-template-columns:92px 1fr;gap:14px;align-items:stretch}
+.lvl-h{display:grid;align-content:start;gap:2px;padding-top:10px;border-top:3px solid var(--accent)}
+.lvl-h b{font:600 18px var(--display)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.q{all:unset;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:6px;cursor:pointer;align-content:start}
+.q:hover{border-color:var(--accent)}
+.q:focus-visible{outline:2px solid var(--hl);outline-offset:2px}
+.q[aria-pressed="true"]{border:2px solid var(--accent);padding:11px 13px}
+.q.planned{background:transparent;border-style:dashed}
+.q .ctx{font-weight:600}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font:600 11px/1.6 var(--body);letter-spacing:.03em;white-space:nowrap}
+.active{background:var(--ok-soft);color:var(--ok)}
+.plan{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;min-width:0}
+.gpos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.gpo{border-left:4px solid var(--accent);padding:4px 0 4px 12px;display:grid;gap:4px}
+.gpo q{font:500 15.5px/1.5 var(--display);quotes:"“" "”"}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{background:var(--bg);font-weight:600;font-size:12.5px;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.note{font-size:13.5px;padding:8px 10px;border-radius:7px;background:var(--warn-soft)}
+.btn{display:inline-block;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font:600 14px var(--body);text-decoration:none}
+.btn.secondary{background:transparent;color:var(--accent)}
+:root[data-theme="dark"] .btn:not(.secondary){color:#0b1a1d}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn:not(.secondary){color:#0b1a1d}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;font:500 13px var(--body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chip:focus-visible{outline:2px solid var(--hl);outline-offset:2px}
+tr.is-active td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+@media (max-width:560px){.lvl{grid-template-columns:1fr}.lvl-h{grid-auto-flow:column;justify-content:start;gap:10px;align-items:baseline}}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">NZCEL Preparation Platform</div>
+    <nav id="nav" aria-label="Views"><a href="#suite">Qualification suite</a><a href="#compare">Compare GPOs across levels</a></nav>
+  </div>
+  <div class="notice"><div>Preparation tool only. Not an NZQA-approved programme. No result on this platform is evidence towards an NZCEL qualification.</div></div>
+</header>
+<main id="app"></main>
+
+<script src="data/qualifications.js"></script>
+<script>
+const REPO="https://github.com/lexilink-ideation/nzcel/blob/main/";
+const R=window.NZCEL_REGISTRY;
+const SK=[["listening","Listening"],["speaking","Speaking"],["reading","Reading"],["writing","Writing"]];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ctxName=q=>q.context||"—";
+let sel=null; try{sel=localStorage.getItem("nzcel.hub.sel")}catch(e){}
+if(!R.qualifications.some(q=>q.id===sel)) sel="L4-academic";
+let cmpSkill="writing", cmpCtx="All";
+
+function vSuite(){
+  const levels=[6,5,4,3,2,1];
+  const active=R.qualifications.filter(q=>q.status==="active").length;
+  return `
+  <section style="display:grid;gap:8px"><h1>The NZCEL suite</h1>
+   <p class="lede">All ${R.qualifications.length} NZCEL qualifications listed in the NZQA Supporting Document (SD p.6). ${active} are built so far. The others are registered with their GPOs, CEFR/IELTS reference points and text lengths, ready for alignment docs and content.</p>
+   <div class="legend"><span class="row"><span class="pill active">Active</span> docs and prototype exist</span><span class="row"><span class="pill plan">Planned</span> registered; no content yet</span><span class="muted">CEFR/IELTS are approximate exit levels (SD p.8), not learner results.</span></div>
+  </section>
+  <section style="display:grid;gap:14px">${levels.map(l=>{const qs=R.qualifications.filter(q=>q.level===l);return `
+   <div class="lvl"><div class="lvl-h"><b>Level ${l}</b><span class="muted" style="font-size:13px">NZQF</span></div>
+    <div class="cards">${qs.map(q=>`<button class="q ${q.status}" aria-pressed="${q.id===sel}" data-id="${q.id}">
+      <div class="row spread"><span class="ctx">${esc(q.context||"Level "+q.level)}</span><span class="pill ${q.status==="active"?"active":"plan"}">${q.status==="active"?"Active":"Planned"}</span></div>
+      <span class="mono muted">Ref ${q.ref} · ${esc(q.cefr)}${q.ielts?" · IELTS "+q.ielts:""}</span></button>`).join("")}</div></div>`}).join("")}
+  </section>
+  <section class="card" id="detail"></section>`;
+}
+function fillDetail(){
+  const q=R.qualifications.find(x=>x.id===sel);
+  const el=document.getElementById("detail");
+  el.innerHTML=`
+   <div class="row spread"><div style="display:grid;gap:4px"><h2>${esc(q.title)}</h2><span class="mono muted">Ref ${q.ref} · approx. exit ${esc(q.cefr)}${q.ielts?" · IELTS "+q.ielts+" (reference only)":""}</span></div>
+    <span class="pill ${q.status==="active"?"active":"plan"}">${q.status==="active"?"Active":"Planned"}</span></div>
+   ${q.note?`<p class="note">${esc(q.note)}</p>`:""}
+   <div style="display:grid;gap:8px"><h3>Graduate Profile Outcomes <span class="muted" style="font-weight:400">(verbatim, SD pp.10–13)</span></h3>
+    <div class="gpos">${SK.map(([k,n])=>`<div class="gpo"><span class="muted" style="font-size:13px;font-weight:600">${n}</span><q>${esc(q.gpo[k])}</q></div>`).join("")}</div></div>
+   <div style="display:grid;gap:8px"><h3>Text and task lengths <span class="muted" style="font-weight:400">(SD p.30)</span></h3>
+    <div class="tbl"><table><thead><tr>${SK.map(s=>`<th>${s[1]}</th>`).join("")}</tr></thead><tbody><tr>${SK.map(([k])=>`<td>${esc(q.lengths[k])}</td>`).join("")}</tr></tbody></table></div></div>
+   <div style="display:grid;gap:8px"><h3>Mandatory EAP unit standards</h3>
+    ${q.mandatoryUS.length?`<div class="tbl"><table><thead><tr><th>Standard</th><th>Skill</th><th>Title</th><th>SD rule</th></tr></thead><tbody>${q.mandatoryUS.map(u=>`<tr><td class="mono">${u.us}</td><td>${u.skill}</td><td>${esc(u.title)}</td><td>${esc(u.rule)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">None stated in the Supporting Document for this qualification.</p>'}</div>
+   <div class="row">${q.status==="active"
+     ?`<a class="btn" href="prototype/index.html">Open interactive prototype</a>${q.docs.map(d=>`<a class="btn secondary" href="${REPO+d}">${esc(d.replace("docs/",""))}</a>`).join("")}`
+     :`<p class="muted">Not built yet. To add it: write <span class="mono">docs/nzqa-level${q.level}${q.context&&q.context!=="Foundation"?"-"+q.context.toLowerCase():q.context==="Foundation"?"-foundation":""}-alignment.md</span> from the Level 4/5 template, then set <span class="mono">status: "active"</span> in <span class="mono">data/qualifications.js</span>.</p>`}</div>`;
+}
+
+function vCompare(){
+  const ctxs=["All","Academic","General","Employment"];
+  return `
+  <section style="display:grid;gap:8px"><h1>Compare GPOs across levels</h1>
+   <p class="lede">Read one skill from Level 1 to Level 6 to see how the outcome wording steps up. This is the basis for keeping levels genuinely different. Active qualifications are marked in green.</p></section>
+  <section class="card">
+   <div class="row"><span class="muted">Skill</span><div class="chips" id="cSk">${SK.map(([k,n])=>`<button class="chip" aria-pressed="${k===cmpSkill}" data-v="${k}">${n}</button>`).join("")}</div></div>
+   <div class="row"><span class="muted">Context at Levels 3–5</span><div class="chips" id="cCx">${ctxs.map(c=>`<button class="chip" aria-pressed="${c===cmpCtx}" data-v="${c}">${c}</button>`).join("")}</div></div>
+   <div class="tbl"><table><thead><tr><th>Level</th><th>Context</th><th>Ref</th><th>${SK.find(s=>s[0]===cmpSkill)[1]} GPO</th><th>Length (SD p.30)</th></tr></thead><tbody id="cBody"></tbody></table></div>
+  </section>`;
+}
+function fillCompare(){
+  const rows=R.qualifications.filter(q=>cmpCtx==="All"||q.level<3||q.level>5||q.context===cmpCtx||(q.level===3&&cmpCtx==="Employment"&&q.context==="Applied"));
+  document.getElementById("cBody").innerHTML=rows.map(q=>`<tr class="${q.status==="active"?"is-active":""}"><td>${q.level}</td><td>${esc(ctxName(q))}</td><td class="mono">${q.ref}</td><td>${esc(q.gpo[cmpSkill])}</td><td>${esc(q.lengths[cmpSkill])}</td></tr>`).join("");
+}
+
+function render(){
+  const v=location.hash==="#compare"?"compare":"suite";
+  document.querySelectorAll("#nav a").forEach(a=>{if(a.getAttribute("href")==="#"+v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  const app=document.getElementById("app");
+  if(v==="suite"){app.innerHTML=vSuite();fillDetail();
+    document.querySelectorAll(".q").forEach(b=>b.onclick=()=>{sel=b.dataset.id;try{localStorage.setItem("nzcel.hub.sel",sel)}catch(e){}
+      document.querySelectorAll(".q").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));fillDetail();document.getElementById("detail").scrollIntoView({behavior:"smooth",block:"nearest"})});}
+  else{app.innerHTML=vCompare();fillCompare();
+    document.querySelectorAll("#cSk .chip").forEach(b=>b.onclick=()=>{cmpSkill=b.dataset.v;render()});
+    document.querySelectorAll("#cCx .chip").forEach(b=>b.onclick=()=>{cmpCtx=b.dataset.v;render()});}
+}
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>

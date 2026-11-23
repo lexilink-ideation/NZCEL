@@ -16,6 +16,9 @@ Primary curriculum reference: NZQA *NZCEL Supporting Document* (2026).
 
 | Path | Purpose |
 |---|---|
+| `index.html` | Front page: the full NZCEL suite (Levels 1–6), status of each qualification, GPO comparison across levels |
+| `data/qualifications.js` | Registry of all 13 NZCEL qualifications: verbatim GPOs, CEFR/IELTS reference, text/task lengths, mandatory unit standards |
+| `docs/README.md` | Documentation index and how to add a level |
 | `docs/nzqa-level4-alignment.md` | Level 4 GPOs (verbatim), focus areas, text types, sufficiency rules, task matrix |
 | `docs/nzqa-level5-alignment.md` | Level 5 equivalents, plus Level 4 → 5 differentiation |
 | `docs/assessment-blueprint.md` | Formative / timed mock / rubric modes, mock evidence sets, topic bank, time limits |
