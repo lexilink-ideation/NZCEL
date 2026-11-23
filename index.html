@@ -88,6 +88,7 @@ tr.is-active td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
   <div class="notice"><div>This is a practice website. Results here are for learning only and do not count towards an NZCEL qualification.</div></div>
 </header>
 <main id="app"></main>
+<footer style="max-width:1120px;margin:0 auto;padding:0 16px 32px;font-size:13px" class="muted">For teachers: <a href="prototype/index.html">teacher and review view</a> (curriculum alignment, assessment blueprint, rubrics, verification log).</footer>
 
 <script src="data/qualifications.js"></script>
 <script>
@@ -126,7 +127,7 @@ function fillDetail(){
    <div style="display:grid;gap:8px"><h3>How long are the texts and tasks?</h3>
     <div class="tbl"><table><thead><tr>${SK.map(s=>`<th>${s[1]}</th>`).join("")}</tr></thead><tbody><tr>${SK.map(([k])=>`<td>${esc(len(q,k))}</td>`).join("")}</tr></tbody></table></div></div>
    <div class="row">${isOn(q)
-     ?`<a class="btn" href="prototype/index.html">Start practising</a>`
+     ?`<a class="btn" href="practice/index.html">Start practising</a>`
      :`<p class="muted">Coming soon. Practice for this level is not available yet.</p>`}</div>`;
 }
 
