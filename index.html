@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NZCEL Preparation Platform</title>
+<title>NZCEL Practice</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap" rel="stylesheet">
@@ -82,72 +82,68 @@ tr.is-active td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
 <body>
 <header>
   <div class="bar">
-    <div class="brand">NZCEL Preparation Platform</div>
-    <nav id="nav" aria-label="Views"><a href="#suite">Qualification suite</a><a href="#compare">Compare GPOs across levels</a></nav>
+    <div class="brand">NZCEL Practice</div>
+    <nav id="nav" aria-label="Views"><a href="#suite">All levels</a><a href="#compare">Compare levels</a></nav>
   </div>
-  <div class="notice"><div>Preparation tool only. Not an NZQA-approved programme. No result on this platform is evidence towards an NZCEL qualification.</div></div>
+  <div class="notice"><div>This is a practice website. Results here are for learning only and do not count towards an NZCEL qualification.</div></div>
 </header>
 <main id="app"></main>
 
 <script src="data/qualifications.js"></script>
 <script>
-const REPO="https://github.com/lexilink-ideation/nzcel/blob/main/";
 const R=window.NZCEL_REGISTRY;
 const SK=[["listening","Listening"],["speaking","Speaking"],["reading","Reading"],["writing","Writing"]];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ctxName=q=>q.context||"—";
+const len=(q,k)=>(q.lengthsPlain&&q.lengthsPlain[k])||q.lengths[k];
+const isOn=q=>q.status==="active";
+const statusPill=q=>`<span class="pill ${isOn(q)?"active":"plan"}">${isOn(q)?"Available":"Coming soon"}</span>`;
 let sel=null; try{sel=localStorage.getItem("nzcel.hub.sel")}catch(e){}
 if(!R.qualifications.some(q=>q.id===sel)) sel="L4-academic";
 let cmpSkill="writing", cmpCtx="All";
 
 function vSuite(){
   const levels=[6,5,4,3,2,1];
-  const active=R.qualifications.filter(q=>q.status==="active").length;
   return `
-  <section style="display:grid;gap:8px"><h1>The NZCEL suite</h1>
-   <p class="lede">All ${R.qualifications.length} NZCEL qualifications listed in the NZQA Supporting Document (SD p.6). ${active} are built so far. The others are registered with their GPOs, CEFR/IELTS reference points and text lengths, ready for alignment docs and content.</p>
-   <div class="legend"><span class="row"><span class="pill active">Active</span> docs and prototype exist</span><span class="row"><span class="pill plan">Planned</span> registered; no content yet</span><span class="muted">CEFR/IELTS are approximate exit levels (SD p.8), not learner results.</span></div>
+  <section style="display:grid;gap:8px"><h1>New Zealand Certificates in English Language</h1>
+   <p class="lede">Practise for the NZCEL. Choose your level below to see what you need to be able to do in listening, speaking, reading and writing, and how long the texts and tasks are. Practice is available for the levels marked Available.</p>
+   <div class="legend"><span class="row"><span class="pill active">Available</span> practice ready</span><span class="row"><span class="pill plan">Coming soon</span> not available yet</span><span class="muted">CEFR and IELTS levels are approximate guides only.</span></div>
   </section>
   <section style="display:grid;gap:14px">${levels.map(l=>{const qs=R.qualifications.filter(q=>q.level===l);return `
-   <div class="lvl"><div class="lvl-h"><b>Level ${l}</b><span class="muted" style="font-size:13px">NZQF</span></div>
+   <div class="lvl"><div class="lvl-h"><b>Level ${l}</b></div>
     <div class="cards">${qs.map(q=>`<button class="q ${q.status}" aria-pressed="${q.id===sel}" data-id="${q.id}">
-      <div class="row spread"><span class="ctx">${esc(q.context||"Level "+q.level)}</span><span class="pill ${q.status==="active"?"active":"plan"}">${q.status==="active"?"Active":"Planned"}</span></div>
-      <span class="mono muted">Ref ${q.ref} · ${esc(q.cefr)}${q.ielts?" · IELTS "+q.ielts:""}</span></button>`).join("")}</div></div>`}).join("")}
+      <div class="row spread"><span class="ctx">${esc(q.context||"Level "+q.level)}</span>${statusPill(q)}</div>
+      <span class="muted" style="font-size:13px">About ${esc(q.cefr)} (CEFR)${q.ielts?" · IELTS "+q.ielts:""}</span></button>`).join("")}</div></div>`}).join("")}
   </section>
   <section class="card" id="detail"></section>`;
 }
 function fillDetail(){
   const q=R.qualifications.find(x=>x.id===sel);
-  const el=document.getElementById("detail");
-  el.innerHTML=`
-   <div class="row spread"><div style="display:grid;gap:4px"><h2>${esc(q.title)}</h2><span class="mono muted">Ref ${q.ref} · approx. exit ${esc(q.cefr)}${q.ielts?" · IELTS "+q.ielts+" (reference only)":""}</span></div>
-    <span class="pill ${q.status==="active"?"active":"plan"}">${q.status==="active"?"Active":"Planned"}</span></div>
-   ${q.note?`<p class="note">${esc(q.note)}</p>`:""}
-   <div style="display:grid;gap:8px"><h3>Graduate Profile Outcomes <span class="muted" style="font-weight:400">(verbatim, SD pp.10–13)</span></h3>
+  document.getElementById("detail").innerHTML=`
+   <div class="row spread"><div style="display:grid;gap:4px"><h2>${esc(q.title)}</h2><span class="muted" style="font-size:13.5px">About ${esc(q.cefr)} (CEFR)${q.ielts?" · similar to IELTS "+q.ielts:""}</span></div>${statusPill(q)}</div>
+   <div style="display:grid;gap:8px"><h3>What you need to be able to do</h3>
     <div class="gpos">${SK.map(([k,n])=>`<div class="gpo"><span class="muted" style="font-size:13px;font-weight:600">${n}</span><q>${esc(q.gpo[k])}</q></div>`).join("")}</div></div>
-   <div style="display:grid;gap:8px"><h3>Text and task lengths <span class="muted" style="font-weight:400">(SD p.30)</span></h3>
-    <div class="tbl"><table><thead><tr>${SK.map(s=>`<th>${s[1]}</th>`).join("")}</tr></thead><tbody><tr>${SK.map(([k])=>`<td>${esc(q.lengths[k])}</td>`).join("")}</tr></tbody></table></div></div>
-   <div style="display:grid;gap:8px"><h3>Mandatory EAP unit standards</h3>
-    ${q.mandatoryUS.length?`<div class="tbl"><table><thead><tr><th>Standard</th><th>Skill</th><th>Title</th><th>SD rule</th></tr></thead><tbody>${q.mandatoryUS.map(u=>`<tr><td class="mono">${u.us}</td><td>${u.skill}</td><td>${esc(u.title)}</td><td>${esc(u.rule)}</td></tr>`).join("")}</tbody></table></div>`:'<p class="muted">None stated in the Supporting Document for this qualification.</p>'}</div>
-   <div class="row">${q.status==="active"
-     ?`<a class="btn" href="prototype/index.html">Open interactive prototype</a>${q.docs.map(d=>`<a class="btn secondary" href="${REPO+d}">${esc(d.replace("docs/",""))}</a>`).join("")}`
-     :`<p class="muted">Not built yet. To add it: write <span class="mono">docs/nzqa-level${q.level}${q.context&&q.context!=="Foundation"?"-"+q.context.toLowerCase():q.context==="Foundation"?"-foundation":""}-alignment.md</span> from the Level 4/5 template, then set <span class="mono">status: "active"</span> in <span class="mono">data/qualifications.js</span>.</p>`}</div>`;
+   <div style="display:grid;gap:8px"><h3>How long are the texts and tasks?</h3>
+    <div class="tbl"><table><thead><tr>${SK.map(s=>`<th>${s[1]}</th>`).join("")}</tr></thead><tbody><tr>${SK.map(([k])=>`<td>${esc(len(q,k))}</td>`).join("")}</tr></tbody></table></div></div>
+   <div class="row">${isOn(q)
+     ?`<a class="btn" href="prototype/index.html">Start practising</a>`
+     :`<p class="muted">Coming soon. Practice for this level is not available yet.</p>`}</div>`;
 }
 
 function vCompare(){
   const ctxs=["All","Academic","General","Employment"];
   return `
-  <section style="display:grid;gap:8px"><h1>Compare GPOs across levels</h1>
-   <p class="lede">Read one skill from Level 1 to Level 6 to see how the outcome wording steps up. This is the basis for keeping levels genuinely different. Active qualifications are marked in green.</p></section>
+  <section style="display:grid;gap:8px"><h1>Compare levels</h1>
+   <p class="lede">Choose a skill to see how it becomes more demanding from Level 1 to Level 6.</p></section>
   <section class="card">
    <div class="row"><span class="muted">Skill</span><div class="chips" id="cSk">${SK.map(([k,n])=>`<button class="chip" aria-pressed="${k===cmpSkill}" data-v="${k}">${n}</button>`).join("")}</div></div>
-   <div class="row"><span class="muted">Context at Levels 3–5</span><div class="chips" id="cCx">${ctxs.map(c=>`<button class="chip" aria-pressed="${c===cmpCtx}" data-v="${c}">${c}</button>`).join("")}</div></div>
-   <div class="tbl"><table><thead><tr><th>Level</th><th>Context</th><th>Ref</th><th>${SK.find(s=>s[0]===cmpSkill)[1]} GPO</th><th>Length (SD p.30)</th></tr></thead><tbody id="cBody"></tbody></table></div>
+   <div class="row"><span class="muted">Type (Levels 3–5)</span><div class="chips" id="cCx">${ctxs.map(c=>`<button class="chip" aria-pressed="${c===cmpCtx}" data-v="${c}">${c}</button>`).join("")}</div></div>
+   <div class="tbl"><table><thead><tr><th>Level</th><th>Type</th><th>What you need to be able to do</th><th>Length</th></tr></thead><tbody id="cBody"></tbody></table></div>
   </section>`;
 }
 function fillCompare(){
   const rows=R.qualifications.filter(q=>cmpCtx==="All"||q.level<3||q.level>5||q.context===cmpCtx||(q.level===3&&cmpCtx==="Employment"&&q.context==="Applied"));
-  document.getElementById("cBody").innerHTML=rows.map(q=>`<tr class="${q.status==="active"?"is-active":""}"><td>${q.level}</td><td>${esc(ctxName(q))}</td><td class="mono">${q.ref}</td><td>${esc(q.gpo[cmpSkill])}</td><td>${esc(q.lengths[cmpSkill])}</td></tr>`).join("");
+  document.getElementById("cBody").innerHTML=rows.map(q=>`<tr class="${isOn(q)?"is-active":""}"><td>${q.level}</td><td>${esc(ctxName(q))}</td><td>${esc(q.gpo[cmpSkill])}</td><td>${esc(len(q,cmpSkill))}</td></tr>`).join("");
 }
 
 function render(){
