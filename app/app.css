@@ -106,3 +106,6 @@ select,input[type=text]{border:1px solid var(--line);border-radius:7px;padding:6
 details summary{cursor:pointer;font-weight:600}
 @media (max-width:520px){.slot{grid-template-columns:58px 1fr}.slot .pill{grid-column:2}.barrow{grid-template-columns:110px 1fr 44px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.pnum{display:inline-block;min-width:22px;margin-right:6px;font:600 11px var(--mono);color:var(--muted);vertical-align:1px}
+.phead{margin:16px 0 4px;font:600 15.5px var(--body)}
+.passage .phead:first-of-type{margin-top:4px}

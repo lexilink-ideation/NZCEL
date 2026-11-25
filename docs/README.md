@@ -30,6 +30,7 @@ CEFR/IELTS reference points, text and task lengths, mandatory unit standards) is
 | [assessment-blueprint.md](assessment-blueprint.md) | Modes, mock evidence sets, topic bank, time limits (currently L4/L5 Academic) |
 | [marking-rubrics.md](marking-rubrics.md) | Practice rubrics and marking keys (currently L4/L5 Academic) |
 | [repository-audit.md](repository-audit.md) | Audit result and checklist for imported content |
+| [level4-practice-set.md](level4-practice-set.md) | Teacher's edition of Level 4 Practice Set 1: all texts, scripts, keys and teacher notes (generated) |
 
 ## Adding a level
 
@@ -46,3 +47,14 @@ CEFR/IELTS reference points, text and task lengths, mandatory unit standards) is
 
 The existing Level 4 and Level 5 files cover the **Academic** context only. Their names
 are kept as originally requested.
+
+## Practice sets
+
+Practice content lives in `data/sets/` (one file per skill group). After editing it, run:
+
+```
+node tools/validate-sets.js --doc
+```
+
+This checks lengths, topics, focus IDs, answer keys and paragraph references against the alignment
+rules, and regenerates the teacher's edition.
