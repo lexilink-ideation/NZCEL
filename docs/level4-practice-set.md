@@ -594,3 +594,33 @@ L4-18 · seminar discussion (interaction) · T406 Food waste in supply chains ·
 - Has the group reached agreement? What is your recommendation?
 
 **Teacher note.** Interaction practice. Use the prompts only if the discussion stalls. Watch for turn-taking, building on others and responding to counter-points. Rate with S4I.1–S4I.5.
+
+## Suggested study schedule (teacher only)
+
+Three sessions a week. A suggestion only: adapt it to your timetable. Keep at most one mock or rubric task per skill per session, so each piece of evidence comes from a separate occasion.
+
+### Week 1: Getting started; research articles
+
+- **Session 1** · formative: Orientation: how the site works; short practice reading
+- **Session 1** · mock: Listening mock: panel discussion on food waste (≈ 6½ min)
+- **Session 2** · mock: Reading mock: research article on tab-switching (45 min)
+- **Session 3** · rubric: Writing: summary of the tab-switching article (400+ words, in class or homework)
+
+### Week 2: Lectures and note-taking; start the report
+
+- **Session 4** · mock: Listening mock: lecture on invasive species, with notes (≈ 8½ min)
+- **Session 5** · rubric: Writing: launch the source-based report. Read the source pack, take notes, plan
+- **Session 6** · rubric: Speaking: seminar discussion on food waste, with role cards (6–10 min)
+
+### Week 3: Long reading; drafting the report; presentation preparation
+
+- **Session 7** · mock: Reading mock: microfinance textbook section (1,541 words, 75 min)
+- **Session 8** · rubric: Writing: draft and revise the report; submit by the end of the week (800+ words)
+- **Session 9** · prep: Speaking preparation: plan presentations on invasive species (structure, cue cards, slides)
+
+### Week 4: Presentations; timed essay; review
+
+- **Session 10** · rubric: Speaking: presentations with Q&A (8+ min each; large classes may need two sessions)
+- **Session 11** · rubric: Writing: timed essay under test conditions on class start times and sleep (500+ words, 75 min)
+- **Session 12** · review: Review: go through results by focus area, give feedback on the rubric tasks, agree next practice goals
+
