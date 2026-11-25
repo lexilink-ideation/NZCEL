@@ -131,6 +131,7 @@ const SLOT_STU={"L4-L1":"Long lecture (at least 8 minutes)","L4-L2":"Lecture, pa
 "L5-L1":"Seminar, lecture or podcast (8–10 minutes)","L5-L2":"A second talk on a different topic (8–10 minutes)","L5-R1":"Journal article or research report (at least 1500 words)","L5-R2":"A second text on a different topic (at least 1500 words)","L5-W1":"Report or critical review (at least 1000 words)","L5-W2":"Timed essay (at least 600 words)","L5-S1":"Research presentation with questions (10–12 minutes)","L5-S2":"Academic debate (10–12 minutes)"};
 const critName=c=>STU?c.replace(/^[A-Z0-9.]+\s+/,""):c;
 const topicName=t=>STU?t.replace(/^T\d+\s+/,""):t;
+const RUB_SRC=["W4.6 Use of researched material",["Sources absent or copied","Sources used but mostly copied or not acknowledged","Sources paraphrased and acknowledged, with some lapses","Sources integrated in own words, acknowledged consistently, used to support points"]];
 const RUB={
  "4W":[["W4.1 Task and academic purpose",["Does not answer the task or genre","Partly answers the task; genre unclear","Answers the task; genre mostly appropriate","Fully answers the task in an appropriate academic genre"]],
   ["W4.2 Detail and development",["Ideas listed or asserted, not developed","Some ideas developed; support thin or general","Most ideas developed with explanation and examples","Main ideas consistently developed with explanation, examples and/or evidence"]],
@@ -251,12 +252,13 @@ function voiceScore(v){const n=v.name.toLowerCase(),l=(v.lang||"").toLowerCase()
   if(!v.localService)s+=3;return s}
 function englishVoices(){try{return speechSynthesis.getVoices().filter(v=>voiceScore(v)>=0).sort((a,b)=>voiceScore(b)-voiceScore(a))}catch(e){return[]}}
 function chosenVoice(){const vs=englishVoices();const saved=store.get("voice","");return vs.find(v=>v.name===saved)||vs[0]||null}
-function speakScript(text,onDone){
+function speakScript(text,onDone,speakers){
   try{speechSynthesis.cancel()}catch(e){}
-  const v=chosenVoice();const parts=text.split(/\n\n/).flatMap((para,pi)=>{const ss=para.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[para];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1}))}).filter(x=>x.t);
+  const v=chosenVoice();try{const vn=document.getElementById("voiceNow");if(vn)vn.textContent=v?"Now playing with: "+v.name:"Using the browser's default voice"}catch(e){}const pool=v?[v,...englishVoices().filter(x=>x.name!==v.name)]:englishVoices();const PITCH=[1,.86,1.14,.94,1.24];const parts=text.split(/\n\n/).flatMap(para=>{let k=0,body=para;if(speakers){const m=para.match(/^([^:]{1,40}):\s+/);if(m&&speakers.includes(m[1])){k=speakers.indexOf(m[1]);body=para.slice(m[0].length)}}const ss=body.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[body];return ss.map((x,i)=>({t:x.trim(),gap:i===ss.length-1,k}))}).filter(x=>x.t);
+  if(speakers){try{const vn=document.getElementById("voiceNow");if(vn)vn.textContent+=pool.length>1?` (+ ${Math.min(pool.length,speakers.length)-1} other voice(s) for the other speakers)`:" (other speakers use a different pitch)"}catch(e){}}
   let i=0,stopped=false;
   const next=()=>{if(stopped)return;if(i>=parts.length){onDone();return}
-    const u=new SpeechSynthesisUtterance(parts[i].t);if(v){u.voice=v;u.lang=v.lang}else u.lang="en-NZ";u.rate=.92;u.pitch=1;
+    const P=parts[i];const u=new SpeechSynthesisUtterance(P.t);const vv=pool.length?pool[P.k%pool.length]:null;if(vv){u.voice=vv;u.lang=vv.lang}else u.lang="en-NZ";u.rate=.92;u.pitch=(speakers&&pool.length<=P.k)?PITCH[P.k%PITCH.length]:1;
     const gap=parts[i].gap?450:120;i++;u.onend=()=>setTimeout(next,gap);u.onerror=e=>{if(e.error==="interrupted"||e.error==="canceled"){stopped=true;onDone()}else setTimeout(next,gap)};speechSynthesis.speak(u)};
   next();
 }
@@ -271,8 +273,35 @@ function learnerCheck(measured,min,unit,what){
   return `<div class="meter">${ok?'<span class="pill ok">Length reached</span>':'<span class="pill warn">Not long enough yet</span>'}<span>${what}: <b>${unit==="s"?mmss(measured):measured+" words"}</b> · Aim: <b>at least ${unit==="s"?mmss(min):min+" words"}</b></span></div>`;
 }
 const SAMPLE='<span class="pill rec">Sample task · short version</span>';
-function scriptHTML(t){const out=t.split(/\n\n/).map(x=>x.trim()).filter(Boolean);
-  return `<article class="passage">${out.map(x=>`<p>${esc(x)}</p>`).join("")}</article>`;}
+/* ---------- Practice sets (data/sets/*.js) ---------- */
+const SETS=window.NZCEL_SETS||{};
+const SAMPLE_OF={listening:()=>LISTEN[LV],reading:()=>READ[LV],writing:()=>WRITE[LV]};
+function tasksFor(skill){
+  const list=((SETS[LV]&&SETS[LV][skill])||[]).map(x=>Object.assign({full:true},x));
+  if(skill==="speaking")return list.length?list:SPEAK[LV];
+  const smp=SAMPLE_OF[skill]&&SAMPLE_OF[skill]();
+  if(smp)list.push(Object.assign({sample:true,name:skill==="writing"?"Extra timed essay: "+topicName(smp.topic):"Sample: "+topicName(smp.topic)+" (short version)"},smp));
+  return list;
+}
+let pick=store.get("pick",{});
+function picked(skill){const l=tasksFor(skill);return l[pick[LV+"-"+skill]||0]||l[0]}
+function taskPicker(skill){const l=tasksFor(skill);if(l.length<2)return"";const i=pick[LV+"-"+skill]||0;
+  return `<div class="row"><label for="pick-${skill}"><b>${STU?"Choose a task":"Task"}</b></label><select id="pick-${skill}" data-skill="${skill}" style="max-width:100%">${l.map((t,j)=>`<option value="${j}"${j===i?" selected":""}>${esc(t.name||topicName(t.topic))}${t.full?" · full length":""}</option>`).join("")}</select></div>`}
+function wirePickers(){document.querySelectorAll("select[data-skill]").forEach(x=>x.onchange=()=>{pick[LV+"-"+x.dataset.skill]=+x.value;store.set("pick",pick);render()})}
+function bodyParas(d){return d.paras.filter(p=>!p.startsWith("## "))}
+function passageHTML(d){let n=0;return `<article class="passage"><h4>${esc(d.title)}</h4>${d.paras.map(p=>p.startsWith("## ")?`<h5 class="phead">${esc(p.slice(3))}</h5>`:`<p><span class="pnum" aria-label="Paragraph ${++n}">${n}</span>${esc(p)}</p>`).join("")}</article>`}
+function spokenText(d){return d.speakers?d.script.split(/\n\n/).map(p=>{const m=p.match(/^([^:]{1,40}):\s+/);return m&&d.speakers.includes(m[1])?p.slice(m[0].length):p}).join("\n\n"):d.script}
+function shortOK(q,val){const v=" "+String(val).toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ")+" ";return v.trim().length>0&&q.accept.some(alt=>alt.every(w=>v.includes(w.toLowerCase())))}
+function qTag(q,skill){return STU?`<span class="pill none">${SHORT[q.f]||q.f}</span>`:`<span class="mono muted">${gpoOf(skill).id}-${q.f}</span>`}
+function qHTML(q,i,pre,skill,showTag){
+  const tag=showTag?qTag(q,skill):"";
+  if(q.type==="short")return `<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)} ${tag}</legend><input type="text" id="${pre}s${i}" aria-label="Answer to question ${i+1}" autocomplete="off" style="max-width:440px;width:100%">${pre==="f"?`<div><button class="btn secondary" data-chk="${i}" style="padding:5px 12px;font-size:13px">Check answer</button></div>`:""}</fieldset><div class="fb hidden" id="${pre}f${i}"></div></div>`;
+  return `<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)} ${tag}</legend>${q.o.map((o,j)=>`<label class="opt" id="${pre}o${i}_${j}"><input type="radio" name="${pre}${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="${pre}f${i}"></div></div>`;
+}
+function keyText(q){return q.type==="short"?q.model:q.o[q.a]}
+function teacherKey(d){return `<div><b>Answer key</b><ol style="margin:6px 0 0;padding-left:20px">${d.qs.map(q=>`<li>${esc(keyText(q))} <span class="muted" style="font-size:12.5px">(${SHORT[q.f]||q.f}${q.ref?" · "+esc(q.ref):""})</span></li>`).join("")}</ol></div>${d.verify&&d.verify.length?`<div class="fb" style="background:var(--warn-soft)"><b>Check before release:</b> ${d.verify.map(esc).join(" ")}</div>`:""}`}
+function scriptHTML(t,speakers){const out=t.split(/\n\n/).map(x=>x.trim()).filter(Boolean).map(x=>{if(speakers){const m=x.match(/^([^:]{1,40}):\s+/);if(m&&speakers.includes(m[1]))return {sp:m[1],t:x.slice(m[0].length)}}return {t:x}});
+  return `<article class="passage">${out.map(x=>`<p>${x.sp?`<b>${esc(x.sp)}:</b> `:""}${esc(x.t)}</p>`).join("")}</article>`;}
 const FOOT=STU?'<p class="footer-note">This is a practice result for learning only. It does not count towards an NZCEL qualification.</p>':'<p class="footer-note">This is a practice result from a preparation platform. It is not an NZQA assessment and is not evidence towards an NZCEL qualification. NZCEL qualifications are awarded through assessment on approved programmes delivered by tertiary providers.</p>';
 
 /* ================= VIEWS ================= */
@@ -364,26 +393,30 @@ function vBlue(){
 
 /* ---------- A. Formative ---------- */
 function vForm(){
-  const d=READ[LV];const words=wc(d.paras.join(" "));
+  const d=picked("reading");const words=wc(bodyParas(d).join(" "));
   return `
   <section class="grid" style="gap:8px"><h1>${STU?"Practice exercise · Reading":'<span class="modetag mF">A</span> Formative exercise · Reading'}</h1><p class="lede">${STU?"There's no time limit. Choose an answer to see straight away whether it's correct and why. Each question shows which reading skill it practises.":"Untimed. Feedback appears as soon as you answer, with the focus area each item practises. Formative texts may be shorter than mock texts (SD: other tasks “can be relatively simpler”)."}</p></section>
   <section class="card">
-   ${STU?`<div class="row" style="gap:6px 14px"><span><b>Reading</b> · ${esc(topicName(d.topic))}</span>${SAMPLE}</div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${gpoOf("Reading").id}</span></span><span><b>Topic</b> ${d.topic}</span><span><b>Text type</b> ${d.textType}</span><span><b>Task</b> ${d.task}</span></div>
-   <div class="meter"><span class="pill ok">Formative: no length minimum</span><span class="muted">${words} words (a mock version would need ≥ ${d.min})</span></div>`}
-   <article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>
-   <div id="fq">${d.qs.map((q,i)=>`<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)} ${STU?`<span class="pill none">${SHORT[q.f]||q.f}</span>`:`<span class="mono muted">${gpoOf("Reading").id}-${q.f}</span>`}</legend>
-     ${q.o.map((o,j)=>`<label class="opt" id="fo${i}_${j}"><input type="radio" name="f${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="ff${i}"></div></div>`).join("")}</div>
+   ${taskPicker("reading")}
+   ${STU?`<div class="row" style="gap:6px 14px"><span><b>Reading</b> · ${esc(topicName(d.topic))}</span>${d.sample?SAMPLE:`<span class="pill ok">Full length · ${words} words</span>`}</div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${gpoOf("Reading").id}</span></span><span><b>Topic</b> ${d.topic}</span><span><b>Text type</b> ${d.textType}</span><span><b>Task</b> ${d.task}</span></div>
+   <div class="meter"><span class="pill ok">Formative: no length minimum</span><span class="muted">${words} words${d.sample?` (a mock version would need ≥ ${d.min})`:""}</span></div>`}
+   ${d.intro?`<p class="muted">${esc(d.intro)}</p>`:""}
+   ${passageHTML(d)}
+   <div id="fq">${d.qs.map((q,i)=>qHTML(q,i,"f","Reading",true)).join("")}</div>
    <div class="card" style="background:var(--bg)"><h3>${STU?"Your progress by skill area":"Your progress by focus area"}</h3><div class="bars" id="fbars"></div></div>
   </section>`;
 }
 function bindForm(){
-  const d=READ[LV];const ans={};
+  wirePickers();
+  const d=picked("reading");const ans={};
   const draw=()=>{const by={};d.qs.forEach((q,i)=>{by[q.f]=by[q.f]||[0,0];if(i in ans){by[q.f][1]++;if(ans[i])by[q.f][0]++}});
     $("#fbars").innerHTML=Object.keys(by).map(k=>{const [c,t]=by[k];const lbl=(FOCUS[LV].Reading.find(f=>f[0]===k)||[k,k])[1];return `<div class="barrow"><span title="${esc(lbl)}">${STU?esc(SHORT[k]||k):`<span class="mono">${k}</span> ${esc(lbl.split(" ").slice(0,3).join(" "))}…`}</span><div class="track"><div class="fill" style="width:${t?c/t*100:0}%"></div></div><span class="num">${c}/${t}</span></div>`}).join("")+`<p class="muted" style="font-size:12.5px">${STU?"These counts help you see what to practise next.":"Counts only. No levels or pass marks are derived from them."}</p>`};
-  d.qs.forEach((q,i)=>document.querySelectorAll(`input[name=f${i}]`).forEach(r=>r.addEventListener("change",()=>{
+  d.qs.forEach((q,i)=>{
+    if(q.type==="short"){const b=document.querySelector(`[data-chk="${i}"]`);b.onclick=()=>{const ok=shortOK(q,$("#fs"+i).value);ans[i]=ok;const f=$("#ff"+i);f.classList.remove("hidden");f.innerHTML=(ok?"<b>Correct.</b> ":"<b>Check this one.</b> ")+`Model answer: <b>${esc(q.model)}</b>. `+esc(q.e);draw()};return}
+    document.querySelectorAll(`input[name=f${i}]`).forEach(r=>r.addEventListener("change",()=>{
     const v=+r.value;ans[i]=v===q.a;
     q.o.forEach((_,j)=>{const el=$(`#fo${i}_${j}`);el.classList.remove("right","wrong");if(j===q.a)el.classList.add("right");else if(j===v)el.classList.add("wrong")});
-    const f=$("#ff"+i);f.classList.remove("hidden");f.innerHTML=(v===q.a?"<b>Correct.</b> ":"<b>Not quite.</b> ")+esc(q.e);draw();})));
+    const f=$("#ff"+i);f.classList.remove("hidden");f.innerHTML=(v===q.a?"<b>Correct.</b> ":"<b>Not quite.</b> ")+esc(q.e);draw();}))});
   draw();
 }
 
@@ -399,18 +432,20 @@ function bindMock(){
   document.querySelectorAll("[data-mt]").forEach(b=>b.onclick=()=>{mockTab=b.dataset.mt;render()});
   const box=$("#mockBody");
   const isL=mockTab==="listening";
-  const d=isL?LISTEN[LV]:READ[LV];
+  const d=picked(isL?"listening":"reading");
   const g=gpoOf(isL?"Listening":"Reading");
-  const words=isL?wc(d.script):wc(d.paras.join(" "));
+  const words=isL?wc(spokenText(d)):wc(bodyParas(d).join(" "));
   const est=Math.round(words/150*60);
-  const limit=isL?(LV==="4"?10:15)*60:(LV==="4"?45:75)*60;
-  const slot=isL?(LV==="4"?"L4-L2":"L5-L2"):(LV==="4"?"L4-R2":"L5-R2");
+  const limit=d.mins?d.mins*60:isL?(LV==="4"?10:15)*60:(LV==="4"?45:75)*60;
+  const slot=d.slot||(isL?(LV==="4"?"L4-L2":"L5-L2"):(LV==="4"?"L4-R2":"L5-R2"));
   box.innerHTML=`
-   ${STU?`<div class="row" style="gap:6px 14px"><span><b>${isL?"Listening":"Reading"}</b> · ${esc(topicName(d.topic))}</span>${SAMPLE}</div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Topic</b> ${d.topic}</span><span><b>Text type</b> ${d.textType}</span><span><b>Coverage slot</b> <span class="mono">${slot}</span></span></div>
-   ${isL?lengthCheck(est,d.min,"rec","s"):lengthCheck(words,d.min,d.minType,"w")}
+   ${taskPicker(isL?"listening":"reading")}
+   ${STU?`<div class="row" style="gap:6px 14px"><span><b>${isL?"Listening":"Reading"}</b> · ${esc(topicName(d.topic))}</span>${d.sample?SAMPLE:`<span class="pill ok">Full length</span>`}</div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Topic</b> ${d.topic}</span><span><b>Text type</b> ${d.textType}</span><span><b>Coverage slot</b> <span class="mono">${slot}</span></span>${d.task?`<span><b>Task</b> ${esc(d.task)}</span>`:""}</div>
+   ${isL?lengthCheck(est,d.min,d.minType||"rec","s"):lengthCheck(words,d.min,d.minType,"w")}
    ${isL?'<p class="muted" style="font-size:13px">Audio duration is estimated at 150 words per minute from the script. In production, recorded audio is measured exactly.</p>':""}`}
-   ${isL&&!STU?`<details class="card" open style="background:var(--bg);border-color:var(--accent)"><summary>Audio script and answer key (teacher only · ${words} words · about ${mmss(est)} spoken)</summary><div style="display:grid;gap:10px;margin-top:10px"><p class="muted" style="font-size:13px">Hidden from students during the mock; shown to them in their results after they submit. Topic: ${esc(d.topic)} · ${esc(d.textType)}.</p>${scriptHTML(d.script)}<div><b>Answer key</b><ol style="margin:6px 0 0;padding-left:20px">${d.qs.map(q=>`<li>${esc(q.o[q.a])} <span class="muted" style="font-size:12.5px">(${SHORT[q.f]||q.f})</span></li>`).join("")}</ol></div></div></details>`:""}
-   <div class="card" style="background:var(--bg)" id="pre"><h3>Before you start</h3>
+   ${isL&&!STU?`<details class="card" open style="background:var(--bg);border-color:var(--accent)"><summary>Audio script and answer key (teacher only · ${words} words · about ${mmss(est)} spoken)</summary><div style="display:grid;gap:10px;margin-top:10px"><p class="muted" style="font-size:13px">Hidden from students during the mock; shown to them in their results after they submit. Topic: ${esc(d.topic)} · ${esc(d.textType)}.</p>${scriptHTML(d.script,d.speakers)}${teacherKey(d)}</div></details>`:""}
+   ${!isL&&!STU?`<details class="card" style="background:var(--bg)"><summary>Answer key (teacher only)</summary><div style="margin-top:10px">${teacherKey(d)}</div></details>`:""}
+   <div class="card" style="background:var(--bg)" id="pre"><h3>Before you start</h3>${d.intro?`<p>${esc(d.intro)}</p>`:""}
     <div class="check"><span class="pill must">${STU?"Rule":"Must"}</span><span>${isL?"The audio plays exactly twice (first play + one repeat). You can't pause or replay it.":"Answer independently. Feedback appears only after you submit."}</span>
     <span class="pill perm">${STU?"Allowed":"Permitted"}</span><span>A monolingual or bilingual dictionary${STU?" (a dictionary only, not a translation app)":" (dictionary function only)"}.</span>
     <span class="pill none">Time</span><span>${isL?"Two plays, then ":""}${mmss(limit)} to finish your answers${STU?"":" (platform default; the SD sets no time limit)"}.</span>
@@ -418,31 +453,35 @@ function bindMock(){
     ${isL?`<div id="voiceBox">${voicePicker()}</div>`:""}
     <div><button class="btn" id="startMock">${STU?"Start":"Start mock"}</button></div></div>
    <div id="live" class="hidden" style="display:grid;gap:12px">
-    <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span></div>':""}</div>
-    ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by a computer voice.":"Demo audio uses the browser's best available voice. For the most natural sound, use Microsoft Edge (its Natural voices) or Chrome (Google voices)."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:`<article class="passage"><h4>${d.title}</h4>${d.paras.map(p=>`<p>${esc(p)}</p>`).join("")}</article>`}
-    <div>${d.qs.map((q,i)=>`<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)}</legend>${q.o.map((o,j)=>`<label class="opt" id="mo${i}_${j}"><input type="radio" name="m${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="mf${i}"></div></div>`).join("")}</div>
+    <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="clock">${mmss(limit)}</span></div>${isL?'<div class="row"><button class="btn" id="play">Play audio</button><span id="plays" class="mono">Plays used: 0 of 2</span><span id="voiceNow" class="muted" style="font-size:12.5px;flex-basis:100%;text-align:right"></span></div>':""}</div>
+    ${isL?`<p class="muted" id="ttsnote" style="font-size:13px">${STU?"Turn your sound on. The audio is read by a computer voice.":"Demo audio uses the browser's best available voice. For the most natural sound, use Microsoft Edge (its Natural voices) or Chrome (Google voices)."}</p><label for="notes"><b>Your notes</b> <span class="muted">${STU?"(write notes while you listen; you can change your answers using your notes)":"(kept with your answers; you may amend answers from notes)"}</span></label><textarea id="notes" style="min-height:110px"></textarea>`:passageHTML(d)}
+    <div>${d.qs.map((q,i)=>qHTML(q,i,"m",isL?"Listening":"Reading",false)).join("")}</div>
     <div><button class="btn" id="submitMock">Submit answers</button></div>
    </div>
    <div id="result" class="hidden"></div>`;
+  wirePickers();
   let plays=0,left=limit,done=false;
   const wireVoice=()=>{const sel=$("#voiceSel");if(sel)sel.onchange=()=>store.set("voice",sel.value);const tb=$("#voiceTest");if(tb)tb.onclick=()=>{store.set("voice",$("#voiceSel").value);speakScript("Good morning, everyone. Today's lecture is about sleep and memory.",()=>{})}};
   wireVoice();
   if(isL&&"speechSynthesis" in window&&!englishVoices().length){try{speechSynthesis.onvoiceschanged=()=>{const b=$("#voiceBox");if(b&&!b.innerHTML){b.innerHTML=voicePicker();wireVoice()}}}catch(e){}}
   const submit=(auto)=>{if(done)return;done=true;clearTimers();
     const by={};let c=0;
-    d.qs.forEach((q,i)=>{const s=document.querySelector(`input[name=m${i}]:checked`);const v=s?+s.value:-1;by[q.f]=by[q.f]||[0,0];by[q.f][1]++;if(v===q.a){by[q.f][0]++;c++}
-      document.querySelectorAll(`input[name=m${i}]`).forEach(x=>x.disabled=true);
-      q.o.forEach((_,j)=>{const el=$(`#mo${i}_${j}`);if(j===q.a)el.classList.add("right");else if(j===v)el.classList.add("wrong")});
-      const f=$("#mf"+i);f.classList.remove("hidden");f.innerHTML=(STU?`<b>${SHORT[q.f]||q.f}</b> · `:`<span class="mono">${g.id}-${q.f}</span> · `)+esc(q.e)});
+    d.qs.forEach((q,i)=>{by[q.f]=by[q.f]||[0,0];by[q.f][1]++;let ok;
+      if(q.type==="short"){const inp=$("#ms"+i);ok=shortOK(q,inp.value);inp.readOnly=true;inp.style.borderColor=ok?"var(--ok)":"var(--must)"}
+      else{const s=document.querySelector(`input[name=m${i}]:checked`);const v=s?+s.value:-1;ok=v===q.a;
+        document.querySelectorAll(`input[name=m${i}]`).forEach(x=>x.disabled=true);
+        q.o.forEach((_,j)=>{const el=$(`#mo${i}_${j}`);if(j===q.a)el.classList.add("right");else if(j===v)el.classList.add("wrong")})}
+      if(ok){by[q.f][0]++;c++}
+      const f=$("#mf"+i);f.classList.remove("hidden");f.innerHTML=(STU?`<b>${SHORT[q.f]||q.f}</b> · `:`<span class="mono">${g.id}-${q.f}</span> · `)+(q.type==="short"?`${ok?"Accepted.":"Not matched automatically: compare with the model answer."} Model answer: <b>${esc(q.model)}</b>. `:"")+esc(q.e)});
     $("#submitMock").disabled=true;if($("#play"))$("#play").disabled=true;
     const meets=isL?est>=d.min:words>=d.min;
-    setCov(slot,STU?"att":(meets?"att":"cnm"),STU?`${isL?"Listening":"Reading"} sample · ${c} of ${d.qs.length} correct`:(isL?"Listening":"Reading")+" mock demo"+(meets?"":` · ${isL?"audio":"text"} below SD length`));
+    setCov(slot,STU?"att":(meets?"att":"cnm"),STU?`${isL?"Listening":"Reading"} ${d.sample?"sample":"· "+(d.name||"")} · ${c} of ${d.qs.length} correct`:(isL?"Listening":"Reading")+" mock demo"+(meets?"":` · ${isL?"audio":"text"} below SD length`));
     const r=$("#result");r.classList.remove("hidden");r.className="card report";
     r.innerHTML=`<div class="row spread"><h2>${STU?"Your results":"Mock report"}</h2>${auto?'<span class="pill warn">Submitted automatically at time limit</span>':""}</div>
      <p>Items answered correctly: <b>${c} of ${d.qs.length}</b></p>
      <div class="bars">${Object.keys(by).map(k=>{const [a,t]=by[k];const lbl=(FOCUS[LV][isL?"Listening":"Reading"].find(f=>f[0]===k)||[k,k])[1];return `<div class="barrow"><span>${STU?esc(SHORT[k]||k):`<span class="mono">${k}</span> ${esc(lbl.split(" ").slice(0,3).join(" "))}…`}</span><div class="track"><div class="fill" style="width:${a/t*100}%"></div></div><span class="num">${a}/${t}</span></div>`}).join("")}</div>
      ${STU?`<p class="muted">Read each explanation above to see why the answer is correct. Your checklist on the Home page has been updated.</p>`:`<h3>Condition checks</h3><div class="check">${meets?'<span class="pill ok">Met</span>':'<span class="pill warn">Not met</span>'}<span>${isL?"Audio length":"Text length"} against the SD guidance for Level ${LV}</span>${isL?`<span class="pill ok">Met</span><span>Plays used: ${plays} of 2</span>`:""}<span class="pill ok">Met</span><span>No hints or AI tools available during the attempt</span></div>
-     <p class="muted">Coverage slot <span class="mono">${slot}</span> updated on the Overview page. A retake would use a new form on a different topic.</p>`}${isL?`<details${STU?" open":""}><summary>${STU?"Read the audio script":"Audio script"}</summary><div style="margin-top:10px">${scriptHTML(d.script)}</div></details>`:""}${FOOT}`;
+     <p class="muted">Coverage slot <span class="mono">${slot}</span> updated on the Overview page. A retake would use a new form on a different topic.</p>`}${isL?`<details${STU?" open":""}><summary>${STU?"Read the audio script":"Audio script"}</summary><div style="margin-top:10px">${scriptHTML(d.script,d.speakers)}</div></details>`:""}${FOOT}`;
     r.scrollIntoView({behavior:"smooth",block:"start"});
   };
   $("#startMock").onclick=()=>{$("#pre").classList.add("hidden");const lv=$("#live");lv.classList.remove("hidden");
@@ -451,15 +490,17 @@ function bindMock(){
       if(!hasTTS)$("#ttsnote").textContent="This browser has no text-to-speech. The play counter still demonstrates the two-play rule.";
       pb.onclick=()=>{if(plays>=2)return;plays++;$("#plays").textContent=`Plays used: ${plays} of 2`;pb.disabled=true;pb.textContent=plays===1?"Playing (1st)…":"Playing (repeat)…";
         const fin=()=>{pb.textContent=plays>=2?"No plays left":"Play repeat";pb.disabled=plays>=2};
-        if(hasTTS){try{speakScript(d.script,fin)}catch(e){fin()}}else setTimeout(fin,1500)}}};
+        if(hasTTS){try{speakScript(d.script,fin,d.speakers)}catch(e){fin()}}else setTimeout(fin,1500)}}};
   $("#submitMock").onclick=()=>submit(false);
 }
 
 /* ---------- C. Rubric ---------- */
 let rubTab="writing", spkIdx=0;
+if(!RUB["4WS"])RUB["4WS"]=null;
+function rubKey(key){if(key==="4WS")return RUB["4W"].concat([RUB_SRC]);return RUB[key]}
 function rubricTable(key,prefix){
   return `<div class="tbl rub"><table><thead><tr><th>${STU?"Checklist point":"Criterion"}</th>${BANDS.map((b,i)=>`<th>${i+1} · ${b}</th>`).join("")}</tr></thead><tbody>
-   ${RUB[key].map((c,ci)=>`<tr><td class="crit">${esc(critName(c[0]))}<br><input type="text" id="${prefix}c${ci}" placeholder="${STU?"Example from the work":"Evidence / comment"}" style="width:100%;margin-top:6px;font-weight:400"></td>${c[1].map((t,bi)=>`<td><label><input type="radio" name="${prefix}r${ci}" value="${bi}">${esc(t)}</label></td>`).join("")}</tr>`).join("")}
+   ${rubKey(key).map((c,ci)=>`<tr><td class="crit">${esc(critName(c[0]))}<br><input type="text" id="${prefix}c${ci}" placeholder="${STU?"Example from the work":"Evidence / comment"}" style="width:100%;margin-top:6px;font-weight:400"></td>${c[1].map((t,bi)=>`<td><label><input type="radio" name="${prefix}r${ci}" value="${bi}">${esc(t)}</label></td>`).join("")}</tr>`).join("")}
   </tbody></table></div>`;
 }
 function vRub(){
@@ -469,7 +510,7 @@ function vRub(){
   <section class="card" id="rubBody"></section>`;
 }
 function report(key,prefix,conds,rater){
-  const rows=RUB[key].map((c,ci)=>{const s=document.querySelector(`input[name=${prefix}r${ci}]:checked`);const cm=$("#"+prefix+"c"+ci).value.trim();
+  const rows=rubKey(key).map((c,ci)=>{const s=document.querySelector(`input[name=${prefix}r${ci}]:checked`);const cm=$("#"+prefix+"c"+ci).value.trim();
     return `<tr><td>${esc(critName(c[0]))}</td><td>${s?`<span class="pill ${+s.value===3?"ok":+s.value===2?"rec":"warn"}">${+s.value+1} · ${BANDS[+s.value]}</span>`:'<span class="pill none">Not rated</span>'}</td><td>${cm?esc(cm):'<span class="muted">No comment</span>'}</td></tr>`}).join("");
   return `<div class="row spread"><h2>${STU?"Your feedback":"Practice report"}</h2><span class="pill none">Rated by: ${esc(rater)}${rater==="automated"?" · Automated formative feedback":""}</span></div>
    <h3>${STU?"Task checks":"Condition checks"}</h3><div class="check">${conds.map(c=>`${c[0]?`<span class="pill ok">${STU?"Yes":"Met"}</span>`:`<span class="pill warn">${STU?"Not yet":"Not met"}</span>`}<span>${esc(c[1])}</span>`).join("")}</div>
@@ -480,41 +521,56 @@ function bindRub(){
   document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{rubTab=b.dataset.rt;render()});
   const box=$("#rubBody");
   if(rubTab==="writing"){
-    const w=WRITE[LV];const g=gpoOf("Writing");
-    box.innerHTML=`${STU?`<div class="row" style="gap:6px 14px"><span><b>Timed essay</b> · ${esc(topicName(w.topic))}</span></div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Task</b> ${w.task}</span><span><b>Topic</b> ${w.topic}</span><span><b>Coverage slot</b> <span class="mono">${w.slot}</span></span></div>`}
-     <div class="card" style="background:var(--bg)"><h3>Prompt</h3><p style="max-width:72ch">${esc(w.prompt)}</p><p><b>Write at least ${w.min} words.</b> ${STU?"":badge(w.minType)}</p>
-      <div class="check"><span class="pill must">Test conditions</span><span>${STU?"Timed. You can't paste text, there's no spell-check, and AI tools are not allowed. You may use a dictionary. You can't edit your essay after you submit it.":"Timed, locked editor: paste is disabled, no spell-check, no AI tools. Dictionary allowed. No resubmission; a new attempt uses a new prompt (SD p.24)."}</span><span class="pill none">Time</span><span>${w.mins} minutes${STU?"":" (platform default)"}.</span></div>
-      <div><button class="btn" id="wStart">Start timed writing</button></div></div>
+    const w=picked("writing");const g=gpoOf("Writing");const timed=w.test!==false;
+    const src=w.sourceRef?((SETS[LV]&&SETS[LV].reading)||[]).find(x=>x.id===w.sourceRef):null;
+    box.innerHTML=`${taskPicker("writing")}
+     ${STU?`<div class="row" style="gap:6px 14px"><span><b>${esc(w.name||"Timed essay")}</b> · ${esc(topicName(w.topic))}</span></div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Task</b> ${w.task}</span><span><b>Topic</b> ${w.topic}</span><span><b>Coverage slot</b> <span class="mono">${w.slot}</span></span></div>`}
+     <div class="card" style="background:var(--bg)"><h3>${STU?"Your task":"Prompt"}</h3><p style="max-width:72ch">${esc(w.prompt)}</p><p><b>Write at least ${w.min} words.</b> ${STU?"":badge(w.minType)}</p>
+      ${w.tips?`<details${STU?" open":""}><summary>${STU?"Tips":"Learner tips"}</summary><ul style="margin:6px 0 0;padding-left:18px">${w.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></details>`:""}
+      ${timed?`<div class="check"><span class="pill must">Test conditions</span><span>${STU?"Timed. You can't paste text, there's no spell-check, and AI tools are not allowed. You may use a dictionary. You can't edit your essay after you submit it.":"Timed, locked editor: paste is disabled, no spell-check, no AI tools. Dictionary allowed. No resubmission; a new attempt uses a new prompt (SD p.24)."}</span><span class="pill none">Time</span><span>${w.mins} minutes${STU?"":" (platform default)"}.</span></div>`
+      :`<div class="check"><span class="pill none">${STU?"No time limit":"Crafted task"}</span><span>${STU?"You can plan, draft and revise. Use a dictionary if you like. The final text must be your own work, with no AI tools.":"Not under test conditions: drafting and revision allowed; learner declares own work, no AI tools."}</span></div>`}
+      ${!STU&&w.teacher?`<p class="fb"><b>Teacher note:</b> ${esc(w.teacher)}</p>`:""}
+      <div><button class="btn" id="wStart">${timed?"Start timed writing":"Start writing"}</button></div></div>
+     ${w.sources?`<details class="card" open><summary>Source pack (${w.sources.length} sources)</summary><div style="display:grid;gap:12px;margin-top:10px">${w.sources.map(x=>`<article class="passage"><h4>${esc(x.label)}: ${esc(x.title)}</h4><p class="muted" style="font-size:13px">${esc(x.cite)}</p>${x.text.split(/\n\n/).map(t=>`<p>${esc(t)}</p>`).join("")}</article>`).join("")}</div></details>`:""}
+     ${src?`<details class="card"><summary>The article to summarise: ${esc(src.title)}</summary><div style="margin-top:10px">${passageHTML(src)}</div></details>`:""}
      <div id="wLive" class="hidden" style="display:grid;gap:10px">
-      <div class="row spread"><div class="row"><span class="muted">Time remaining</span><span class="timer" id="wClock">${mmss(w.mins*60)}</span></div><span class="mono" id="wCount">0 words</span></div>
-      <textarea id="wText" spellcheck="false" autocomplete="off" aria-label="Your essay"></textarea>
-      <p class="muted" id="pasteMsg" style="font-size:13px">Paste is disabled under test conditions.</p>
-      <div class="row"><button class="btn" id="wSubmit">Submit essay</button>${STU?"":'<button class="btn secondary" id="wSample">Fill with demo text (reviewer shortcut)</button>'}</div>
+      <div class="row spread"><div class="row">${timed?`<span class="muted">Time remaining</span><span class="timer" id="wClock">${mmss(w.mins*60)}</span>`:`<span class="muted">No time limit</span>`}</div><span class="mono" id="wCount">0 words</span></div>
+      <textarea id="wText" ${timed?'spellcheck="false"':""} autocomplete="off" aria-label="Your writing" style="min-height:${timed?280:420}px"></textarea>
+      ${timed?'<p class="muted" id="pasteMsg" style="font-size:13px">Paste is disabled under test conditions.</p>':`<div class="row"><input type="checkbox" id="wDecl"><label for="wDecl">${STU?"This is my own work. I did not use AI tools, and I have acknowledged my sources.":"Learner declaration: own work, no AI tools, sources acknowledged."}</label></div>`}
+      <div class="row"><button class="btn" id="wSubmit">${timed?"Submit essay":"Submit for checking"}</button>${STU?"":'<button class="btn secondary" id="wSample">Fill with demo text (reviewer shortcut)</button>'}</div>
      </div>
-     <div id="wRate" class="hidden" style="display:grid;gap:12px"><h2>${STU?"Check your essay":"Rate against the rubric"}</h2>
+     <div id="wRate" class="hidden" style="display:grid;gap:12px"><h2>${STU?"Check your writing":"Rate against the rubric"}</h2>
       <div class="row"><label for="wRater"><b>${STU?"Who is rating?":"Rater"}</b></label><select id="wRater"><option>self</option><option>peer</option><option>teacher</option>${STU?"":"<option>automated</option>"}</select></div>
       ${rubricTable(w.crit,"w")}<div><button class="btn" id="wReport">${STU?"See my feedback":"Generate practice report"}</button></div></div>
      <div id="wOut" class="hidden card report"></div>`;
-    let left=w.mins*60,submitted=false,words=0;
+    wirePickers();
+    let left=(w.mins||0)*60,submitted=false,words=0;
     const ta=$("#wText");
-    ta.addEventListener("paste",e=>{e.preventDefault();$("#pasteMsg").innerHTML="<b>Paste blocked.</b> Under test conditions, type your own work."});
-    ta.addEventListener("drop",e=>e.preventDefault());
+    if(timed){ta.addEventListener("paste",e=>{e.preventDefault();$("#pasteMsg").innerHTML="<b>Paste blocked.</b> Under test conditions, type your own work."});ta.addEventListener("drop",e=>e.preventDefault())}
     ta.addEventListener("input",()=>{$("#wCount").textContent=wc(ta.value)+" words"});
-    if($("#wSample"))$("#wSample").onclick=()=>{ta.value="Recorded lectures give first-year students flexibility, because they can watch at a convenient time and replay difficult sections. However, attending in person helps students build routines and ask questions directly. In my view, a combination is best, provided that first-year students attend most sessions while they adjust to university study.";ta.dispatchEvent(new Event("input"))};
-    const sub=()=>{if(submitted)return;submitted=true;clearTimers();words=wc(ta.value);ta.readOnly=true;$("#wSubmit").disabled=true;if($("#wSample"))$("#wSample").disabled=true;$("#wRate").classList.remove("hidden");
-      setCov(w.slot,words>=w.min?"att":"cnm",`Timed writing · ${words} words`+(words>=w.min?"":` (below ${w.min})`));
-      $("#wRate").insertAdjacentHTML("afterbegin",learnerCheck(words,w.min,"w","Your essay"))};
-    $("#wStart").onclick=()=>{$("#wStart").closest(".card").querySelector("div:last-child").classList.add("hidden");$("#wLive").classList.remove("hidden");ta.focus();
-      timers.push(setInterval(()=>{left--;$("#wClock").textContent=mmss(left);if(left<=0)sub()},1000))};
+    if($("#wSample"))$("#wSample").onclick=()=>{ta.value="This is a short demonstration text used to test the checking and feedback steps. It is much shorter than the required length.";ta.dispatchEvent(new Event("input"));if($("#wDecl"))$("#wDecl").checked=true};
+    const sub=()=>{if(submitted)return;
+      if(!timed&&!$("#wDecl").checked){$("#wDecl").focus();$("#wDecl").parentElement.style.color="var(--must)";return}
+      submitted=true;clearTimers();words=wc(ta.value);ta.readOnly=true;$("#wSubmit").disabled=true;if($("#wSample"))$("#wSample").disabled=true;$("#wRate").classList.remove("hidden");
+      setCov(w.slot,words>=w.min?"att":"cnm",`${w.name||"Writing"} · ${words} words`+(words>=w.min?"":` (below ${w.min})`));
+      $("#wRate").insertAdjacentHTML("afterbegin",learnerCheck(words,w.min,"w",STU?"Your writing":"Word count"))};
+    $("#wStart").onclick=()=>{$("#wStart").parentElement.classList.add("hidden");$("#wLive").classList.remove("hidden");ta.focus();
+      if(timed)timers.push(setInterval(()=>{left--;$("#wClock").textContent=mmss(left);if(left<=0)sub()},1000))};
     $("#wSubmit").onclick=sub;
-    $("#wReport").onclick=()=>{const o=$("#wOut");o.classList.remove("hidden");o.innerHTML=report(w.crit,"w",(STU?[[words>=w.min,`${words} words (aim: at least ${w.min})`],[true,"Written under test conditions"]]:[[words>=w.min,`Word count ${words} against ${w.minType==="must"?"required":"recommended"} minimum ${w.min}`],[true,"Completed under platform test conditions (timed, paste disabled)"],[true,"Learner declaration: own work, no AI tools"]]),$("#wRater").value);o.scrollIntoView({behavior:"smooth"})};
+    $("#wReport").onclick=()=>{const o=$("#wOut");o.classList.remove("hidden");
+      const conds=STU?[[words>=w.min,`${words} words (aim: at least ${w.min})`],[true,timed?"Written under test conditions":"Own work, no AI tools, sources acknowledged"]]:[[words>=w.min,`Word count ${words} against ${w.minType==="must"?"required":"recommended"} minimum ${w.min}`],[true,timed?"Completed under platform test conditions (timed, paste disabled)":"Crafted task: learner declaration completed"],[true,"Learner declaration: own work, no AI tools"]];
+      o.innerHTML=report(w.crit,"w",conds,$("#wRater").value);o.scrollIntoView({behavior:"smooth"})};
   } else {
-    const list=SPEAK[LV];const t=list[spkIdx]||list[0];const g=gpoOf("Speaking");
+    const list=tasksFor("speaking");const t=list[spkIdx]||list[0];const g=gpoOf("Speaking");
     box.innerHTML=`<div class="seg">${list.map((x,i)=>`<button aria-pressed="${i===spkIdx}" data-si="${i}">${x.interaction?(STU?"Discussion / debate":"Interaction"):"Presentation"}</button>`).join("")}</div>
      ${STU?`<div class="row" style="gap:6px 14px"><span><b>${t.interaction?"Discussion / debate":"Presentation"}</b> · ${esc(topicName(t.topic))}</span></div>`:`<div class="row" style="gap:6px 14px"><span><b>GPO</b> <span class="mono">${g.id}</span></span><span><b>Task</b> ${t.task}</span><span><b>Topic</b> ${t.topic}</span><span><b>Coverage slot</b> <span class="mono">${t.slot}</span></span></div>`}
      <div class="card" style="background:var(--bg)"><h3>${t.name}</h3><p style="max-width:72ch">${esc(t.brief)}</p>
       ${STU?`<div class="check"><span class="pill none">Time</span><span>Speak for ${t.minLabel}.</span><span class="pill must">Rule</span><span>${t.interaction?"No scripts. You may have a role card, but don't read from notes.":"Cue cards with key words only. Don't read from a script. Slides should have very little text."}</span>${t.interaction?'<span class="pill must">Rule</span><span>Do this with a classmate, a group or your teacher.</span>':""}</div>`
-      :`<div class="check"><span class="pill ${t.minType}">${t.minType==="must"?"Must":"Recommended"}</span><span>Duration ${t.minLabel}.</span><span class="pill must">Must</span><span>Minimal written support: ${t.interaction?"no text that could act as a script":"cue cards with key words only; visuals with minimal text"}.</span>${t.interaction?'<span class="pill must">Must</span><span>A live partner or group is needed. A recorded-prompt simulation is formative only and does not fill this slot.</span>':""}</div>`}</div>
+      :`<div class="check"><span class="pill ${t.minType}">${t.minType==="must"?"Must":"Recommended"}</span><span>Duration ${t.minLabel}.</span><span class="pill must">Must</span><span>Minimal written support: ${t.interaction?"no text that could act as a script":"cue cards with key words only; visuals with minimal text"}.</span>${t.interaction?'<span class="pill must">Must</span><span>A live partner or group is needed. A recorded-prompt simulation is formative only and does not fill this slot.</span>':""}</div>`}
+      ${t.prep?`<details${STU?" open":""}><summary>${STU?"How to plan your presentation":"Suggested structure"}</summary><ol style="margin:6px 0 0;padding-left:20px">${t.prep.map(x=>`<li>${esc(x)}</li>`).join("")}</ol></details>`:""}
+      ${t.roles?`<details open><summary>Role cards</summary><div class="grid g2" style="margin-top:8px">${t.roles.map(r=>`<div class="card" style="padding:12px"><b>${esc(r.name)}</b><span class="muted" style="font-size:13.5px">${esc(r.position)}</span></div>`).join("")}</div></details>`:""}
+      ${!STU&&t.teacherQs?`<details><summary>${t.interaction?"Teacher prompts":"Question bank for Q&amp;A"} (teacher only)</summary><ul style="margin:6px 0 0;padding-left:18px">${t.teacherQs.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>`:""}
+      ${!STU&&t.teacher?`<p class="fb"><b>Teacher note:</b> ${esc(t.teacher)}</p>`:""}</div>
      <div class="card"><h3>${STU?"Record and time yourself":"Speaking timer and recording"}</h3>
       <p class="muted" style="font-size:13px">Press Start to begin the timer and record from your microphone (your browser will ask permission). The recording stays on this device. If recording isn't available, the timer still works and you can attach a recording from your phone.</p>
       <div class="row"><span class="timer" id="sClock">00:00</span><button class="btn" id="sGo">Start</button><button class="btn secondary" id="sStop" disabled>Stop</button>${STU?"":`<button class="btn secondary" id="sSkip">Simulate ${mmss(t.minS)} (reviewer shortcut)</button>`}<span class="muted" id="sRecMsg" style="font-size:13px"></span></div>

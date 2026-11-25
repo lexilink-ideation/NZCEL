@@ -26,6 +26,8 @@ Primary curriculum reference: NZQA *NZCEL Supporting Document* (2026).
 | `docs/repository-audit.md` | Audit result and checklist for any imported content |
 | `practice/index.html` | **Student view**: practice exercises, mock exam, writing & speaking (no review tools) |
 | `prototype/index.html` | Teacher / review view: adds alignment matrix, assessment blueprint and verification log |
+| `data/sets/` | Practice content: Level 4 Practice Set 1 (listening, reading, writing, speaking) |
+| `tools/validate-sets.js` | Checks practice sets against the alignment rules; `--doc` regenerates the teacher's edition |
 | `app/app.js`, `app/app.css` | Shared code for both views (`window.NZCEL_AUDIENCE` selects student or teacher) |
 
 ## Status
