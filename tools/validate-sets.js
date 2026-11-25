@@ -71,6 +71,19 @@ for (const [lv, set] of Object.entries(SETS)) {
   if (!sp.some(t => t.interaction)) err("L" + lv, "speaking: at least one task must be an interaction");
 }
 
+// Teacher schedule: every task referenced must exist; one mock/rubric task per skill per session.
+const schedFile = path.join(dir, "teacher", "l4-schedule.js");
+if (fs.existsSync(schedFile)) {
+  require(schedFile);
+  const allIds = {}; for (const [lv, set] of Object.entries(SETS)) for (const sk of Object.keys(set)) for (const t of set[sk]) allIds[t.id] = sk;
+  const seen = new Set();
+  for (const w of window.NZCEL_SCHEDULE["4"].weeks) for (const se of w.sessions) {
+    const skills = [];
+    for (const it of se.items) { if (!it.task) continue; if (!allIds[it.task]) err("schedule", `${se.day}: unknown task ${it.task}`); if (it.kind !== "prep") { skills.push(allIds[it.task]); seen.add(it.task); } }
+    if (new Set(skills).size !== skills.length) err("schedule", `${se.day}: two tasks for the same skill in one session`);
+  }
+  Object.keys(allIds).filter(id => id.startsWith("L4-") && !seen.has(id)).forEach(id => err("schedule", `task ${id} is not scheduled`));
+}
 rows.forEach(r => console.log(r.slice(0, 2).join("  ").padEnd(26), r[6]));
 if (errors.length) { console.error("\nERRORS:\n" + errors.join("\n")); process.exit(1); }
 console.log("\nAll practice-set checks passed.");
@@ -95,6 +108,8 @@ if (process.argv.includes("--doc")) {
   L.writing.forEach(t => { out.push("", `## ${t.slot} · ${t.name}`, "", `${t.task} · ${t.topic} · ≥ ${t.min} words${t.test ? ` · test conditions, ${t.mins} minutes` : " · crafted (no time limit)"} · rubric ${t.crit}`, "", `**Prompt.** ${t.prompt}`, ""); (t.tips || []).forEach(x => out.push(`- ${x}`)); if (t.sources) t.sources.forEach(s => { out.push("", `### ${s.label}: ${s.title}`, `_${s.cite}_`, ""); s.text.split(/\n\n/).forEach(p => out.push(p, "")); }); if (t.sourceRef) out.push("", `Source text: ${t.sourceRef} (see Reading).`); out.push("", `**Teacher note.** ${t.teacher}`); });
   out.push("", "## Speaking");
   L.speaking.forEach(t => { out.push("", `## ${t.slot} · ${t.name}`, "", `${t.task} · ${t.topic} · ${t.minLabel} · rubric ${t.crit}`, "", `**Brief.** ${t.brief}`, ""); if (t.prep) { out.push("**Suggested structure**", ""); t.prep.forEach(x => out.push(`1. ${x}`)); out.push(""); } if (t.roles) { out.push("**Role cards**", ""); t.roles.forEach(r => out.push(`- **${r.name}:** ${r.position}`)); out.push(""); } out.push(`**${t.interaction ? "Teacher prompts" : "Question bank for Q&A"}**`, ""); t.teacherQs.forEach(x => out.push(`- ${x}`)); out.push("", `**Teacher note.** ${t.teacher}`); });
+  const sc = window.NZCEL_SCHEDULE && window.NZCEL_SCHEDULE["4"];
+  if (sc) { out.push("", "## Suggested study schedule (teacher only)", "", sc.note, ""); sc.weeks.forEach(w => { out.push(`### Week ${w.week}: ${w.focus}`, ""); w.sessions.forEach(se => se.items.forEach(it => out.push(`- **${se.day}** · ${it.kind}: ${it.label}`))); out.push(""); }); }
   fs.writeFileSync(path.join(__dirname, "..", "docs", "level4-practice-set.md"), out.join("\n") + "\n");
   console.log("Wrote docs/level4-practice-set.md");
 }

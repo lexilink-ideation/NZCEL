@@ -1,6 +1,6 @@
 /* ================= DATA (from docs/*.md, sourced from the NZQA NZCEL Supporting Document) ================= */
 const STU=window.NZCEL_AUDIENCE==="student";
-const VIEWS=STU?[["home","Home"],["formative","Practice exercises"],["mock","Mock exam"],["rubric","Writing & speaking"]]:[["home","Overview"],["alignment","Alignment matrix"],["blueprint","Assessment blueprint"],["formative","A · Formative"],["mock","B · Timed mock"],["rubric","C · Rubric tasks"],["verify","Verification log"]];
+const VIEWS=STU?[["home","Home"],["formative","Practice exercises"],["mock","Mock exam"],["rubric","Writing & speaking"]]:[["home","Overview"],["alignment","Alignment matrix"],["blueprint","Assessment blueprint"],["schedule","Study schedule"],["formative","A · Formative"],["mock","B · Timed mock"],["rubric","C · Rubric tasks"],["verify","Verification log"]];
 
 const GPO={
  "4":[
@@ -603,6 +603,32 @@ function bindRub(){
   }
 }
 
+/* ---------- Study schedule (teacher view only) ---------- */
+const KIND={formative:["Practice","mF"],mock:["Mock","mM"],rubric:["Rubric","mR"],prep:["Prep","none"],review:["Review","none"]};
+function findTask(id){const set=SETS[LV]||{};for(const sk of ["listening","reading","writing","speaking"]){const l=tasksFor(sk);const i=l.findIndex(t=>t.id===id);if(i>=0)return {sk,i,t:l[i]}}return null}
+function vSched(){
+  const sc=(window.NZCEL_SCHEDULE||{})[LV];
+  if(STU||!sc)return `<section class="grid" style="gap:8px"><h1>Study schedule · Level ${LV}</h1><p class="lede">No practice set or schedule for Level ${LV} yet.</p></section>`;
+  return `<section class="grid" style="gap:8px"><h1>${esc(sc.title)}</h1><p class="lede">${esc(sc.note)}</p>
+   <p class="muted" style="font-size:13px">Teacher view only. Students see the task list and checklist, not this schedule.</p></section>
+   <div class="grid g2">${sc.weeks.map(w=>`<section class="card"><div class="row spread"><h2>Week ${w.week}</h2><span class="muted" style="font-size:13px">${esc(w.focus)}</span></div>
+    ${w.sessions.map(se=>`<div style="display:grid;gap:6px;padding-top:10px;border-top:1px solid var(--line)"><b style="font-size:13.5px">${esc(se.day)}</b>
+     ${se.items.map(it=>{const k=KIND[it.kind]||["",""];const f=it.task?findTask(it.task):null;
+       return `<div class="row" style="align-items:flex-start;flex-wrap:nowrap;gap:10px"><span class="${k[1]==="none"?"pill none":"modetag "+k[1]}" style="flex:none;min-width:58px;text-align:center">${k[0]}</span><span style="flex:1">${esc(it.label)}${f?` <span class="mono muted">${esc(f.t.slot||"")}</span>`:""}</span>${(f||it.open)?`<button class="btn secondary" style="flex:none;padding:4px 10px;font-size:12.5px" data-open="${esc(it.task||"")}" data-sample="${it.open&&it.open.sample?1:""}">Open</button>`:""}</div>`}).join("")}</div>`).join("")}
+   </section>`).join("")}</div>
+   <section class="card"><h2>Why this order</h2><ul style="margin:0;padding-left:18px">
+    <li>Each skill's tasks fall on different sessions and use different topics, as the Supporting Document's sufficiency guidance expects (SD p.40).</li>
+    <li>Listening comes before speaking on the same topic (food waste, invasive species), following the SD's recommended integrated approach (SD p.20).</li>
+    <li>The research article is read before it is summarised; the report is planned, drafted and submitted over two weeks.</li>
+    <li>The timed essay under test conditions comes last, after practice with the other writing tasks.</li></ul></section>`;
+}
+function bindSched(){document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{
+  if(b.dataset.sample){const l=tasksFor("reading");pick[LV+"-reading"]=l.length-1;store.set("pick",pick);location.hash="#formative";return}
+  const f=findTask(b.dataset.open);if(!f)return;
+  if(f.sk==="speaking"){rubTab="speaking";spkIdx=f.i;location.hash="#rubric";return}
+  pick[LV+"-"+f.sk]=f.i;store.set("pick",pick);
+  if(f.sk==="writing"){rubTab="writing";location.hash="#rubric"}else{mockTab=f.sk;location.hash="#mock"}})}
+
 /* ---------- Verification ---------- */
 function vVer(){
   const opts=["Open","Verified – no change","Verified – change needed"];
@@ -623,10 +649,11 @@ function render(){
   $("#nav").innerHTML=VIEWS.map(x=>`<a href="#${x[0]}"${x[0]===view?' aria-current="page"':""}>${x[1]}</a>`).join("");
   ["4","5"].forEach(l=>$("#lv"+l).setAttribute("aria-pressed",String(LV===l)));
   const app=$("#app");
-  app.innerHTML={home:vHome,alignment:vAlign,blueprint:vBlue,formative:vForm,mock:vMock,rubric:vRub,verify:vVer}[view]();
+  app.innerHTML={home:vHome,alignment:vAlign,blueprint:vBlue,schedule:vSched,formative:vForm,mock:vMock,rubric:vRub,verify:vVer}[view]();
   if(view==="alignment"){fillMatrix();
     document.querySelectorAll("#fSkill .chip").forEach(b=>b.onclick=()=>{mxSkill=b.dataset.v;document.querySelectorAll("#fSkill .chip").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));fillMatrix()});
     document.querySelectorAll("#fMode .chip").forEach(b=>b.onclick=()=>{mxMode=b.dataset.v;document.querySelectorAll("#fMode .chip").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));fillMatrix()});}
+  if(view==="schedule")bindSched();
   if(view==="formative")bindForm();
   if(view==="mock")bindMock();
   if(view==="rubric")bindRub();
