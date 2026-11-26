@@ -31,6 +31,7 @@ CEFR/IELTS reference points, text and task lengths, mandatory unit standards) is
 | [marking-rubrics.md](marking-rubrics.md) | Practice rubrics and marking keys (currently L4/L5 Academic) |
 | [repository-audit.md](repository-audit.md) | Audit result and checklist for imported content |
 | [level4-practice-set.md](level4-practice-set.md) | Teacher's edition of Level 4 Practice Set 1: all texts, scripts, keys and teacher notes (generated) |
+| [level5-practice-set.md](level5-practice-set.md) | Teacher's edition of Level 5 Practice Set 1: all texts, scripts, keys, data packs, teacher notes and schedule (generated) |
 
 ## Adding a level
 

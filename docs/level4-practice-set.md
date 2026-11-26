@@ -2,7 +2,7 @@
 
 > Generated from `data/sets/*.js` by `node tools/validate-sets.js --doc`. Do not edit by hand.
 > Preparation material only. Not an NZQA assessment, and not evidence towards an NZCEL qualification.
-> Texts are original. People, studies, places and data described as fictional or hypothetical are invented for teaching.
+> Texts are original. People, studies, organisations, places and data described as fictional or hypothetical are invented for teaching.
 
 ## Alignment matrix
 
@@ -16,7 +16,7 @@
 | L4-W2 | L4-W2-T401 | L4A-WRI | T401 Urban green space and city heat | report (crafted, using researched material) | ≥ 800 words, crafted | L4-15 · modelled on EAP 22750 (preparation only) |
 | L4-W3 | L4-W3-T405 | L4A-WRI | T405 Attention and online learning | summary of an academic article | ≥ 400 words, crafted | L4-13 · summarising academic articles |
 | L4-S1 | L4-S1-T404 | L4A-SPK | T404 Freshwater ecosystems and invasive species | presentation | at least 8 minutes, presentation | L4-17 · modelled on EAP 22891 (preparation only) |
-| L4-S2 | L4-S2-T406 | L4A-SPK | T406 Food waste in supply chains | academic discussion | 6–10 minutes, interaction | L4-18 · seminar discussion (interaction) |
+| L4-S2 | L4-S2-T406 | L4A-SPK | T406 Food waste in supply chains | academic discussion / debate | 6–10 minutes, interaction | L4-18 · seminar discussion (interaction) |
 
 Within each skill, every task uses a different topic, as the Supporting Document's sufficiency guidance requires (SD p.40).
 
