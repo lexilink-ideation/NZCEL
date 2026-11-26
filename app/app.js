@@ -280,7 +280,7 @@ function tasksFor(skill){
   const list=((SETS[LV]&&SETS[LV][skill])||[]).map(x=>Object.assign({full:true},x));
   if(skill==="speaking")return list.length?list:SPEAK[LV];
   const smp=SAMPLE_OF[skill]&&SAMPLE_OF[skill]();
-  if(smp)list.push(Object.assign({sample:true,name:skill==="writing"?"Extra timed essay: "+topicName(smp.topic):"Sample: "+topicName(smp.topic)+" (short version)"},smp));
+  if(smp&&!list.some(t=>t.replacesSample))list.push(Object.assign({sample:true,name:skill==="writing"?(list.length?"Extra timed essay: ":"Sample timed essay: ")+topicName(smp.topic):"Sample: "+topicName(smp.topic)+" (short version)"},smp));
   return list;
 }
 let pick=store.get("pick",{});
@@ -298,6 +298,7 @@ function qHTML(q,i,pre,skill,showTag){
   if(q.type==="short")return `<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)} ${tag}</legend><input type="text" id="${pre}s${i}" aria-label="Answer to question ${i+1}" autocomplete="off" style="max-width:440px;width:100%">${pre==="f"?`<div><button class="btn secondary" data-chk="${i}" style="padding:5px 12px;font-size:13px">Check answer</button></div>`:""}</fieldset><div class="fb hidden" id="${pre}f${i}"></div></div>`;
   return `<div class="q"><fieldset><legend>${i+1}. ${esc(q.q)} ${tag}</legend>${q.o.map((o,j)=>`<label class="opt" id="${pre}o${i}_${j}"><input type="radio" name="${pre}${i}" value="${j}">${esc(o)}</label>`).join("")}</fieldset><div class="fb hidden" id="${pre}f${i}"></div></div>`;
 }
+function tableHTML(rows){return `<div class="tbl" style="margin:6px 0"><table><thead><tr>${rows[0].map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.slice(1).map(r=>`<tr>${r.map((c,i)=>`<td${i&&/^[\d,.%]+$/.test(c)?' class="num"':""}>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`}
 function keyText(q){return q.type==="short"?q.model:q.o[q.a]}
 function teacherKey(d){return `<div><b>Answer key</b><ol style="margin:6px 0 0;padding-left:20px">${d.qs.map(q=>`<li>${esc(keyText(q))} <span class="muted" style="font-size:12.5px">(${SHORT[q.f]||q.f}${q.ref?" · "+esc(q.ref):""})</span></li>`).join("")}</ol></div>${d.verify&&d.verify.length?`<div class="fb" style="background:var(--warn-soft)"><b>Check before release:</b> ${d.verify.map(esc).join(" ")}</div>`:""}`}
 function scriptHTML(t,speakers){const out=t.split(/\n\n/).map(x=>x.trim()).filter(Boolean).map(x=>{if(speakers){const m=x.match(/^([^:]{1,40}):\s+/);if(m&&speakers.includes(m[1]))return {sp:m[1],t:x.slice(m[0].length)}}return {t:x}});
@@ -531,7 +532,7 @@ function bindRub(){
       :`<div class="check"><span class="pill none">${STU?"No time limit":"Crafted task"}</span><span>${STU?"You can plan, draft and revise. Use a dictionary if you like. The final text must be your own work, with no AI tools.":"Not under test conditions: drafting and revision allowed; learner declares own work, no AI tools."}</span></div>`}
       ${!STU&&w.teacher?`<p class="fb"><b>Teacher note:</b> ${esc(w.teacher)}</p>`:""}
       <div><button class="btn" id="wStart">${timed?"Start timed writing":"Start writing"}</button></div></div>
-     ${w.sources?`<details class="card" open><summary>Source pack (${w.sources.length} sources)</summary><div style="display:grid;gap:12px;margin-top:10px">${w.sources.map(x=>`<article class="passage"><h4>${esc(x.label)}: ${esc(x.title)}</h4><p class="muted" style="font-size:13px">${esc(x.cite)}</p>${x.text.split(/\n\n/).map(t=>`<p>${esc(t)}</p>`).join("")}</article>`).join("")}</div></details>`:""}
+     ${w.sources?`<details class="card" open><summary>Source pack (${w.sources.length} sources)</summary><div style="display:grid;gap:12px;margin-top:10px">${w.sources.map(x=>`<article class="passage"><h4>${esc(x.label)}: ${esc(x.title)}</h4><p class="muted" style="font-size:13px">${esc(x.cite)}</p>${x.table?tableHTML(x.table):""}${(x.text||"").split(/\n\n/).filter(Boolean).map(t=>`<p>${esc(t)}</p>`).join("")}</article>`).join("")}</div></details>`:""}
      ${src?`<details class="card"><summary>The article to summarise: ${esc(src.title)}</summary><div style="margin-top:10px">${passageHTML(src)}</div></details>`:""}
      <div id="wLive" class="hidden" style="display:grid;gap:10px">
       <div class="row spread"><div class="row">${timed?`<span class="muted">Time remaining</span><span class="timer" id="wClock">${mmss(w.mins*60)}</span>`:`<span class="muted">No time limit</span>`}</div><span class="mono" id="wCount">0 words</span></div>
@@ -567,6 +568,7 @@ function bindRub(){
      <div class="card" style="background:var(--bg)"><h3>${t.name}</h3><p style="max-width:72ch">${esc(t.brief)}</p>
       ${STU?`<div class="check"><span class="pill none">Time</span><span>Speak for ${t.minLabel}.</span><span class="pill must">Rule</span><span>${t.interaction?"No scripts. You may have a role card, but don't read from notes.":"Cue cards with key words only. Don't read from a script. Slides should have very little text."}</span>${t.interaction?'<span class="pill must">Rule</span><span>Do this with a classmate, a group or your teacher.</span>':""}</div>`
       :`<div class="check"><span class="pill ${t.minType}">${t.minType==="must"?"Must":"Recommended"}</span><span>Duration ${t.minLabel}.</span><span class="pill must">Must</span><span>Minimal written support: ${t.interaction?"no text that could act as a script":"cue cards with key words only; visuals with minimal text"}.</span>${t.interaction?'<span class="pill must">Must</span><span>A live partner or group is needed. A recorded-prompt simulation is formative only and does not fill this slot.</span>':""}</div>`}
+      ${t.data?`<div><b>${STU?"Data for your presentation":"Data pack"}</b> <span class="muted" style="font-size:13px">(fictional data for practice)</span>${tableHTML(t.data)}</div>`:""}
       ${t.prep?`<details${STU?" open":""}><summary>${STU?"How to plan your presentation":"Suggested structure"}</summary><ol style="margin:6px 0 0;padding-left:20px">${t.prep.map(x=>`<li>${esc(x)}</li>`).join("")}</ol></details>`:""}
       ${t.roles?`<details open><summary>Role cards</summary><div class="grid g2" style="margin-top:8px">${t.roles.map(r=>`<div class="card" style="padding:12px"><b>${esc(r.name)}</b><span class="muted" style="font-size:13.5px">${esc(r.position)}</span></div>`).join("")}</div></details>`:""}
       ${!STU&&t.teacherQs?`<details><summary>${t.interaction?"Teacher prompts":"Question bank for Q&amp;A"} (teacher only)</summary><ul style="margin:6px 0 0;padding-left:18px">${t.teacherQs.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></details>`:""}
